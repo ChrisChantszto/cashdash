@@ -20,24 +20,35 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
+            backgroundColor: '#a67c52', // New brown shade for toolbar
             position: 'absolute',
           },
-          default: {},
+          default: {
+            backgroundColor: '#a67c52', // New brown shade for toolbar
+          },
         }),
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,}}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: '',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={40} name="plus.circle.fill" color={color} style={{ marginBottom: -8 }} />
+          ),
+          tabBarLabel: '',
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="profile"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
         }}
       />
     </Tabs>

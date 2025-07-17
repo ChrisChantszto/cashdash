@@ -1,20 +1,38 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, FlatList, Text, Alert, StyleSheet } from 'react-native';
-import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useUser } from '../UserContext';
 
-const API_URL = 'http://localhost:5000/api';
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
+function HomeNavButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.homeButton} onPress={onPress}>
+      <Text style={styles.homeButtonText}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
+
+
+const API_URL = 'http://192.168.68.58:5001/api';
+
+const QUOTES = [
+  "Success is not the key to happiness. Happiness is the key to success.",
+  "The best way to get started is to quit talking and begin doing.",
+  "Don’t let yesterday take up too much of today.",
+  "It’s not whether you get knocked down, it’s whether you get up.",
+  "If you are working on something exciting, it will keep you motivated.",
+  "The harder you work for something, the greater you’ll feel when you achieve it.",
+  "Dream bigger. Do bigger.",
+  "Don’t watch the clock; do what it does. Keep going.",
+  "Great things never come from comfort zones.",
+  "Push yourself, because no one else is going to do it for you."
+];
+
 
 interface Transaction {
   _id: string;
-  userId: User | string;
+  userId: string;
   amount: number;
   date: string;
   category: string;
@@ -22,127 +40,51 @@ interface Transaction {
 }
 
 export default function HomeScreen() {
-  // Auth state
-  const [user, setUser] = useState<User | null>(null);
-  const [email, setEmail] = useState<string>('');
-  const [name, setName] = useState<string>('');
-  const [signInEmail, setSignInEmail] = useState<string>('');
-  // Transaction state
-  const [amount, setAmount] = useState<string>('');
-  const [category, setCategory] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const { user, setUser } = useUser();
 
-  // Fetch transactions
+  const [quote, setQuote] = useState('');
+  const [time, setTime] = useState('');
+
   useEffect(() => {
-    if (user) {
-      fetch(`${API_URL}/transactions`)
-        .then(res => res.json())
-        .then((data: Transaction[]) => setTransactions(data.filter(t => typeof t.userId === 'object' && (t.userId as User)._id === user._id)))
-        .catch(() => setTransactions([]));
-    }
-  }, [user]);
+    const dayIdx = new Date().getDate() % QUOTES.length;
+    setQuote(QUOTES[dayIdx]);
+  }, []);
 
-  // Sign up
-  const handleSignUp = () => {
-    fetch(`${API_URL}/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data._id) {
-          setUser(data);
-          Alert.alert('Sign up successful!');
-        } else {
-          Alert.alert('Sign up failed', data.error || 'Unknown error');
-        }
-      });
-  };
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    };
+    update();
+    const interval = setInterval(update, 1000 * 15);
+    return () => clearInterval(interval);
+  }, []);
 
-  // Sign in
-  const handleSignIn = () => {
-    fetch(`${API_URL}/users`)
-      .then(res => res.json())
-      .then((users: User[]) => {
-        const found = users.find(u => u.email === signInEmail);
-        if (found) {
-          setUser(found);
-          Alert.alert('Sign in successful!');
-        } else {
-          Alert.alert('No user found with that email');
-        }
-      });
-  };
 
-  // Create transaction
-  const handleAddTransaction = () => {
-    if (!amount || !category) return Alert.alert('Amount and category required');
-    fetch(`${API_URL}/transactions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user._id,
-        amount: parseFloat(amount),
-        date: new Date(),
-        category,
-        description,
-      }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data._id) {
-          setTransactions([...transactions, { ...data, userId: user }]);
-          setAmount('');
-          setCategory('');
-          setDescription('');
-          Alert.alert('Transaction added!');
-        } else {
-          Alert.alert('Failed to add transaction', data.error || 'Unknown error');
-        }
-      });
-  };
 
   if (!user) {
-    return (
-      <ThemedView style={styles.container}>
-        <ThemedText type="title">Sign Up</ThemedText>
-        <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
-        <Button title="Sign Up" onPress={handleSignUp} />
-        <View style={{ height: 32 }} />
-        <ThemedText type="title">Sign In</ThemedText>
-        <TextInput style={styles.input} placeholder="Email" value={signInEmail} onChangeText={setSignInEmail} autoCapitalize="none" />
-        <Button title="Sign In" onPress={handleSignIn} />
-      </ThemedView>
-    );
+    // Should never happen, but fallback
+    return <View style={{ flex: 1, backgroundColor: '#f8f4e9' }} />;
   }
 
+
+
+  const router = useRouter();
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Welcome, {user.name}!</ThemedText>
-      <ThemedText>Your email: {user.email}</ThemedText>
-      <View style={{ height: 32 }} />
-      <ThemedText type="subtitle">Add Transaction</ThemedText>
-      <TextInput style={styles.input} placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
-      <TextInput style={styles.input} placeholder="Category" value={category} onChangeText={setCategory} />
-      <TextInput style={styles.input} placeholder="Description" value={description} onChangeText={setDescription} />
-      <Button title="Add Transaction" onPress={handleAddTransaction} />
-      <View style={{ height: 32 }} />
-      <ThemedText type="subtitle">Your Transactions</ThemedText>
-      <FlatList
-        data={transactions}
-        keyExtractor={item => item._id}
-        renderItem={({ item }) => (
-          <View style={styles.transactionItem}>
-            <Text>{item.date ? new Date(item.date).toLocaleString() : ''}</Text>
-            <Text>{item.category}: ${item.amount}</Text>
-            {item.description ? <Text>{item.description}</Text> : null}
-          </View>
-        )}
-        ListEmptyComponent={<Text>No transactions yet.</Text>}
-      />
+
+      <View style={styles.centerContainer}>
+        <Text style={styles.momentumTime}>{time}</Text>
+        <Text style={styles.momentumQuote}>{quote}</Text>
+        <View style={styles.buttonRow}>
+          <HomeNavButton label="Expenses" onPress={() => router.push('/(tabs)/calendar')} />
+          <HomeNavButton label="Net Worth" onPress={() => router.push('/(tabs)/networth')} />
+          <HomeNavButton label="Budget" onPress={() => router.push('/(tabs)/budget')} />
+        </View>
+        <TouchableOpacity style={styles.logoutButton} onPress={() => setUser(null)}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
     </ThemedView>
   );
 }
@@ -150,22 +92,107 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    justifyContent: 'flex-start',
+    backgroundColor: '#f8f4e9',
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 24,
+    gap: 12,
+  },
+  homeButton: {
+    backgroundColor: '#a1887f',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginHorizontal: 6,
+    minWidth: 90,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  homeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  momentumTime: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#5d4037',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  momentumQuote: {
+    fontSize: 18,
+    color: '#8d6e63',
+    textAlign: 'center',
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+  logoutButton: {
+    alignSelf: 'center',
+    backgroundColor: '#a1887f',
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  welcomeText: {
+    marginBottom: 8,
+    marginTop: 0,
+    textAlign: 'center',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 8,
-    marginVertical: 8,
-    borderRadius: 6,
     backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d7ccc8',
+    padding: 10,
+    marginBottom: 8,
+    fontSize: 16,
+    color: '#5d4037',
+  },
+  addButton: {
+    backgroundColor: '#a1887f',
+    borderRadius: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   transactionItem: {
     marginVertical: 8,
-    padding: 8,
-    backgroundColor: '#e3f6fa',
-    borderRadius: 6,
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#d7ccc8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });
 
