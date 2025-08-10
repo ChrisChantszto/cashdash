@@ -14,7 +14,7 @@ function HomeNavButton({ label, onPress }: { label: string; onPress: () => void 
 }
 
 
-const API_URL = 'http://192.168.68.58:5001/api';
+const API_URL = 'http://192.168.0.178:5001/api';
 
 const QUOTES = [
   "Success is not the key to happiness. Happiness is the key to success.",

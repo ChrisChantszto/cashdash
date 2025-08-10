@@ -5,7 +5,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useUser } from '../UserContext';
 
-const API_URL = 'http://192.168.68.58:5001/api';
+const API_URL = 'http://192.168.0.178:5001/api';
 
 interface Transaction {
   _id: string;

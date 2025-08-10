@@ -1,16 +1,26 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 
-const OPTIONS = [
-  { key: 'my-account', label: 'My Account' },
-  { key: 'my-bank-accounts', label: 'My Bank Accounts' },
-  { key: 'help-support', label: 'Help and Support' },
-  { key: 'settings', label: 'Settings' },
-  { key: 'about', label: 'About' },
-  { key: 'store', label: 'Store' },
+type MenuOption = {
+  key: string;
+  label: string;
+  icon: keyof typeof FontAwesome.glyphMap;
+  path?: string;
+};
+
+const OPTIONS: MenuOption[] = [
+  { key: 'scan-qr', label: 'Scan QR Code', icon: 'qrcode', path: '/qr-scanner' },
+  { key: 'my-account', label: 'My Account', icon: 'user', path: '/(tabs)/profile/account' },
+  { key: 'my-bank-accounts', label: 'My Bank Accounts', icon: 'credit-card' },
+  { key: 'help-support', label: 'Help and Support', icon: 'question-circle' },
+  { key: 'settings', label: 'Settings', icon: 'cog' },
+  { key: 'about', label: 'About', icon: 'info-circle' },
+  { key: 'store', label: 'Store', icon: 'shopping-bag' },
 ];
 
 export default function ProfileScreen() {
@@ -24,11 +34,21 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.option}
             onPress={() => {
-              if (item.key === 'my-account') router.push('/(tabs)/profile/account');
+              if (item.path) {
+                router.push(item.path as any);
+              }
               // Add navigation for other options as needed
             }}
           >
-            <Text style={styles.optionText}>{item.label}</Text>
+            <View style={styles.optionContent}>
+              <FontAwesome 
+                name={item.icon} 
+                size={20} 
+                color="#5d4037" 
+                style={styles.optionIcon} 
+              />
+              <Text style={styles.optionText}>{item.label}</Text>
+            </View>
           </TouchableOpacity>
         )}
         keyExtractor={item => item.key}
@@ -55,7 +75,7 @@ const styles = StyleSheet.create({
   option: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#d7ccc8',
@@ -65,9 +85,19 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionIcon: {
+    marginRight: 12,
+    width: 24,
+    textAlign: 'center',
+  },
   optionText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#5d4037',
+    flex: 1,
     fontWeight: '600',
   },
 });

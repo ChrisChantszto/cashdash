@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+// Ensure .env is loaded from this directory even if started from project root
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 
@@ -33,6 +35,6 @@ app.get('/', (req, res) => {
 // API routes
 app.use('/api', require('./routes/api'));
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${port}`);
 });

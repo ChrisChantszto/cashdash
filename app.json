@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "CashDash",
-    "slug": "CashDash",
+    "name": "Cashly",
+    "slug": "Cashly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cashdash",
+    "scheme": "cashly",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
