@@ -37,3 +37,8 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# env files (keep secrets out of git)
+.env
+server/.env
+server/.env.*
