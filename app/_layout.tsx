@@ -1,14 +1,35 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, LogBox } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, LogBox, Platform, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import LoginScreen, { User } from './LoginScreen';
+import { User } from '../types';
 import { UserContext } from './UserContext';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { MainTabs } from '@/components/MainTabs';
+
+// Import screens
+const LoginScreen = React.lazy(() => import('./LoginScreen'));
+const SignInScreen = React.lazy(() => import('./SignInScreen'));
+
+// Fix for web: Ensure all required polyfills are available
+if (typeof Buffer === 'undefined') {
+  global.Buffer = require('buffer').Buffer;
+}
+
+// Ensure we have process defined for web
+if (typeof process === 'undefined') {
+  // @ts-ignore
+  global.process = {
+    env: process?.env || {},
+    nextTick: (callback: (...args: any[]) => void, ...args: any[]) => {
+      return setTimeout(() => callback(...args), 0);
+    },
+  };
+}
 
 // Ignore specific warnings
 LogBox.ignoreLogs([
@@ -29,80 +50,134 @@ export default function RootLayout() {
   // Using only SpaceMono font to prevent loading issues
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    'PlayfairDisplay-Regular': require('../assets/fonts/PlayfairDisplay-Regular.ttf'),
-    'PlayfairDisplay-Bold': require('../assets/fonts/PlayfairDisplay-Bold.ttf'),
   });
-  
-  // Add a small delay to ensure fonts are fully loaded
-  const [appIsReady, setAppIsReady] = useState(false);
-  
+
+  const [user, setUser] = useState<User | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
     async function prepare() {
       try {
-        // Pre-load any assets here if needed
-        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+        // Keep the splash screen visible while we fetch resources
+        await SplashScreen.preventAutoHideAsync();
+        // Small delay to ensure everything is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
-        console.warn(e);
+        console.warn('Failed to prepare app:', e);
       } finally {
         // Tell the application to render
-        setAppIsReady(true);
+        setIsReady(true);
       }
     }
     
     prepare();
   }, []);
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    console.log('Font loading status:', { fontsLoaded });
-  }, [fontsLoaded]);
 
   const onLayoutRootView = useCallback(async () => {
-    console.log('onLayoutRootView called, fontsLoaded:', fontsLoaded);
-    if (fontsLoaded && appIsReady) {
-      console.log('Hiding splash screen...');
-      try {
-        await SplashScreen.hideAsync();
-        console.log('Splash screen hidden successfully');
-      } catch (e) {
-        console.warn('Error hiding splash screen:', e);
-      }
+    if (fontsLoaded && isReady) {
+      await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, appIsReady]);
+  }, [fontsLoaded, isReady]);
 
-  if (!fontsLoaded || !appIsReady) {
+  // Wrap setUser to add logging
+  const setUserWithLogging = useCallback((userData: User | null) => {
+    console.log('User state changing from', user, 'to', userData);
+    setUser(userData);
+  }, [user]);
+
+  const handleLogin = useCallback((userData: User) => {
+    console.log('Handling login for user:', userData);
+    setUserWithLogging(userData);
+  }, [setUserWithLogging]);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    setUser: setUserWithLogging,
+  }), [user, setUserWithLogging]);
+
+  const Stack = createNativeStackNavigator();
+
+  // Show a simple loading view instead of null to prevent layout issues on web
+  if (!fontsLoaded || !isReady) {
     return (
-      <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
-        <Text style={{textAlign: 'center', fontSize: 18, color: '#333'}}>
-          Loading Cashly...
-        </Text>
+      <View style={styles.container}>
+        <View style={{ flex: 1, backgroundColor: '#f5f5f5' }} />
       </View>
     );
   }
 
-  console.log('Rendering main app UI, user:', user ? 'Logged in' : 'Not logged in');
+  const RootView = Platform.OS === 'web' ? SafeAreaView : View;
   
   return (
-    <View style={styles.container} onLayout={onLayoutRootView} testID="root-view">
-      <UserContext.Provider value={{ user, setUser }}>
+    <RootView style={styles.container} onLayout={onLayoutRootView} testID="root-view">
+      <UserContext.Provider value={contextValue}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          {user ? (
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false, presentation: 'card' }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-          ) : (
-            <LoginScreen onLogin={setUser} />
-          )}
-          <StatusBar style="auto" />
+            <React.Suspense fallback={
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#007AFF" />
+              </View>
+            }>
+              <Stack.Navigator
+                key={user ? 'app' : 'auth'}
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              >
+                {user ? (
+                  // Authenticated screens
+                  <Stack.Screen name="MainTabs" component={MainTabs} />
+                ) : (
+                  // Auth screens
+                  <>
+                    <Stack.Screen name="Login" options={{ headerShown: false }}>
+                      {(props) => (
+                        <React.Suspense fallback={<View style={styles.loadingContainer}><ActivityIndicator /></View>}>
+                          <LoginScreen {...props} onLogin={handleLogin} />
+                        </React.Suspense>
+                      )}
+                    </Stack.Screen>
+                    <Stack.Screen name="SignIn" options={{ headerShown: false }}>
+                      {(props) => (
+                        <React.Suspense fallback={<View style={styles.loadingContainer}><ActivityIndicator /></View>}>
+                          <SignInScreen {...props} onLogin={handleLogin} />
+                        </React.Suspense>
+                      )}
+                    </Stack.Screen>
+                  </>
+                )}
+              </Stack.Navigator>
+            </React.Suspense>
+            <StatusBar style="auto" />
         </ThemeProvider>
       </UserContext.Provider>
-    </View>
+    </RootView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  plusButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#8d6e63',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Platform.OS === 'ios' ? 10 : 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });

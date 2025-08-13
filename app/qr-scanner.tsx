@@ -79,9 +79,9 @@ export default function QRScanner() {
       
       <TouchableOpacity 
         onPress={() => router.back()} 
-        style={[styles.button, { backgroundColor: '#ff3b30' }]}
+        style={[styles.button, styles.secondaryButton]}
       >
-        <Text style={styles.buttonText}>Close Scanner</Text>
+        <Text style={[styles.buttonText, { color: '#a67c52' }]}>Close Scanner</Text>
       </TouchableOpacity>
     </View>
   );
@@ -183,12 +183,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#a1887f',
     padding: 15,
     borderRadius: 10,
     margin: 20,
     alignItems: 'center',
     minWidth: 200,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#a67c52',
   },
   buttonText: {
     color: '#fff',

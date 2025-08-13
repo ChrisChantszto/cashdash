@@ -1,34 +1,12 @@
-
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { ThemedView } from '@/components/ThemedView';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ThemedText } from '@/components/ThemedText';
 import { useUser } from '../UserContext';
-
-function HomeNavButton({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={styles.homeButton} onPress={onPress}>
-      <Text style={styles.homeButtonText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 const API_URL = 'http://192.168.0.178:5001/api';
-
-const QUOTES = [
-  "Success is not the key to happiness. Happiness is the key to success.",
-  "The best way to get started is to quit talking and begin doing.",
-  "Don’t let yesterday take up too much of today.",
-  "It’s not whether you get knocked down, it’s whether you get up.",
-  "If you are working on something exciting, it will keep you motivated.",
-  "The harder you work for something, the greater you’ll feel when you achieve it.",
-  "Dream bigger. Do bigger.",
-  "Don’t watch the clock; do what it does. Keep going.",
-  "Great things never come from comfort zones.",
-  "Push yourself, because no one else is going to do it for you."
-];
-
 
 interface Transaction {
   _id: string;
@@ -39,52 +17,135 @@ interface Transaction {
   description?: string;
 }
 
-export default function HomeScreen() {
-  const { user, setUser } = useUser();
+// Configure calendar locale
+LocaleConfig.locales['en'] = {
+  monthNames: [
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+  ],
+  monthNamesShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  dayNamesShort: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+};
+LocaleConfig.defaultLocale = 'en';
 
-  const [quote, setQuote] = useState('');
-  const [time, setTime] = useState('');
+export default function CalendarScreen() {
+  const { user } = useUser();
+  // Using today's date as the default for new transactions
+  const [selected] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Removed state for transaction input form
 
   useEffect(() => {
-    const dayIdx = new Date().getDate() % QUOTES.length;
-    setQuote(QUOTES[dayIdx]);
-  }, []);
+    if (user) {
+      fetch(`${API_URL}/transactions`)
+        .then(res => res.json())
+        .then((data: Transaction[]) => setTransactions(data.filter((t: Transaction) => t.userId === user._id)))
+        .catch(() => setTransactions([]));
+    }
+  }, [user]);
 
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    };
-    update();
-    const interval = setInterval(update, 1000 * 15);
-    return () => clearInterval(interval);
-  }, []);
+  // Transaction addition is now handled through the dedicated add-transaction screen
 
+  const expensesForDay = transactions.filter((t: Transaction) => t.date && t.date.startsWith(selected));
 
-
-  if (!user) {
-    // Should never happen, but fallback
-    return <View style={{ flex: 1, backgroundColor: '#f8f4e9' }} />;
-  }
-
-
-
+  const params = useLocalSearchParams<{ selectedDate?: string }>();
   const router = useRouter();
+  
+  // No need to update URL params since we're not changing dates
+
   return (
     <ThemedView style={styles.container}>
-
-      <View style={styles.centerContainer}>
-        <Text style={styles.momentumTime}>{time}</Text>
-        <Text style={styles.momentumQuote}>{quote}</Text>
-        <View style={styles.buttonRow}>
-          <HomeNavButton label="Expenses" onPress={() => router.push('/(tabs)/calendar')} />
-          <HomeNavButton label="Net Worth" onPress={() => router.push('/(tabs)/networth')} />
-          <HomeNavButton label="Budget" onPress={() => router.push('/(tabs)/budget')} />
-        </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={() => setUser(null)}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <Calendar
+        // Disable day press handler to prevent date selection
+        onDayPress={undefined}
+        // Remove the ability to select dates by not marking any as selected
+        markedDates={transactions.reduce((acc, t) => ({
+          ...acc,
+          [t.date]: {
+            marked: true,
+            dotColor: '#a67c52',
+          },
+        }), {})}
+        theme={{
+          // Background colors
+          backgroundColor: '#e9e2d7',
+          calendarBackground: '#e9e2d7',
+          
+          // Header styling
+          textSectionTitleColor: '#5d4037',
+          textSectionTitleDisabledColor: '#d7ccc8',
+          
+          // Month styling
+          monthTextColor: '#5d4037',
+          textMonthFontWeight: '500',
+          textMonthFontSize: 18,
+          
+          // Day header styling (S M T W T F S)
+          textDayHeaderFontWeight: '400',
+          textDayHeaderFontSize: 14,
+          
+          // Day number styling
+          dayTextColor: '#5d4037',
+          textDayFontWeight: '400',
+          textDayFontSize: 16,
+          
+          // Today styling
+          todayTextColor: '#a67c52',
+          todayBackgroundColor: 'transparent',
+          
+          // Selected day styling
+          selectedDayBackgroundColor: 'transparent',
+          selectedDayTextColor: '#a67c52',
+          // Custom styling will be handled in day component
+          selectedDotColor: '#a67c52',
+          
+          // Disabled day styling
+          textDisabledColor: '#d7ccc8',
+          
+          // Dot styling for marked dates
+          dotColor: '#a67c52',
+          dotStyle: { marginTop: 1 },
+          
+          // Arrow styling
+          arrowColor: '#a67c52',
+          arrowStyle: { padding: 0 },
+          
+          // Other styling
+          textDayStyle: { marginTop: 4, marginBottom: 4 },
+        }}
+        style={styles.calendar}
+        // Custom rendering to achieve the minimalist design
+        customHeaderTitle={(date: any) => {
+          return (
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.monthTitle}>{date.toString('MMMM')}</Text>
+            </View>
+          );
+        }}
+        renderHeader={(date: Date) => {
+          return (
+            <View style={styles.headerContainer}>
+              <Text style={styles.monthTitle}>
+                {LocaleConfig.locales['en'].monthNames[date.getMonth()]}
+              </Text>
+            </View>
+          );
+        }}
+      />
+      {/* Transaction input form has been removed - use the + button in the bottom tab bar */}
+      <ThemedText type="subtitle" style={{ marginTop: 24 }}>Expenses for {selected || '...'}</ThemedText>
+      <FlatList
+        data={expensesForDay}
+        keyExtractor={item => item._id}
+        renderItem={({ item }) => (
+          <View style={styles.transactionItem}>
+            <Text>{item.category}: ${item.amount}</Text>
+            {item.description ? <Text>{item.description}</Text> : null}
+          </View>
+        )}
+        ListEmptyComponent={<Text>No expenses for this day.</Text>}
+      />
     </ThemedView>
   );
 }
@@ -92,89 +153,95 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f4e9',
-    paddingTop: 20,
-    paddingBottom: 40,
+    backgroundColor: '#e9e2d7', // Beige background like in the image
+    padding: 16,
   },
-  centerContainer: {
-    flex: 1,
+  title: {
+    textAlign: 'center',
+    color: '#5d4037',
+    marginBottom: 8,
+  },
+  calendar: {
+    marginBottom: 16,
+    borderRadius: 0, // No rounded corners for minimalist look
+    overflow: 'hidden',
+    backgroundColor: '#e9e2d7', // Match container background
+    borderBottomWidth: 1,
+    borderBottomColor: '#d7ccc8',
+  },
+  headerContainer: {
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginVertical: 24,
-    gap: 12,
-  },
-  homeButton: {
-    backgroundColor: '#a1887f',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginHorizontal: 6,
-    minWidth: 90,
+  headerTitleContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthTitle: {
+    fontSize: 24,
+    fontWeight: '400',
+    color: '#5d4037',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  dayHeader: {
+    fontSize: 12,
+    color: '#8d6e63',
+    textAlign: 'center',
+    fontWeight: '400',
+    paddingVertical: 5,
+  },
+  dayCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  dayText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#5d4037',
+  },
+  todayText: {
+    color: '#a67c52',
+    fontWeight: '500',
+  },
+  selectedDayText: {
+    color: '#a67c52',
+    fontWeight: '500',
+  },
+  disabledDayText: {
+    color: '#d7ccc8',
+  },
+  addSection: {
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#d7ccc8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 1,
   },
-  homeButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  momentumTime: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#5d4037',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  momentumQuote: {
-    fontSize: 18,
-    color: '#8d6e63',
-    textAlign: 'center',
-    marginBottom: 10,
-    fontStyle: 'italic',
-  },
-  logoutButton: {
-    alignSelf: 'center',
-    backgroundColor: '#a1887f',
-    paddingVertical: 8,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  logoutButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  welcomeText: {
-    marginBottom: 8,
-    marginTop: 0,
-    textAlign: 'center',
-  },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#d7ccc8',
     padding: 10,
-    marginBottom: 8,
-    fontSize: 16,
+    marginBottom: 10,
+    borderRadius: 8,
+    backgroundColor: '#fff9f4',
     color: '#5d4037',
+    fontSize: 16,
   },
   addButton: {
     backgroundColor: '#a1887f',
     borderRadius: 20,
     paddingVertical: 10,
     alignItems: 'center',
-    marginBottom: 8,
+    marginTop: 8,
   },
   addButtonText: {
     color: '#fff',
@@ -183,16 +250,15 @@ const styles = StyleSheet.create({
   },
   transactionItem: {
     marginVertical: 8,
-    padding: 15,
+    padding: 12,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#d7ccc8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
   },
 });
-

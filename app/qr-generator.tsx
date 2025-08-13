@@ -81,7 +81,7 @@ export default function QRGenerator() {
         style={[styles.button, styles.backButton]} 
         onPress={() => router.back()}
       >
-        <Text style={[styles.buttonText, { color: '#007AFF' }]}>Go Back</Text>
+        <Text style={[styles.buttonText, { color: '#a67c52' }]}>Go Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -90,7 +90,7 @@ export default function QRGenerator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8f4e9',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -100,10 +100,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
+    color: '#5d4037',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#8d6e63',
     textAlign: 'center',
     marginBottom: 30,
     paddingHorizontal: 20,
@@ -122,12 +123,12 @@ const styles = StyleSheet.create({
   linkText: {
     marginTop: 15,
     marginBottom: 30,
-    color: '#007AFF',
+    color: '#a67c52',
     textAlign: 'center',
     paddingHorizontal: 20,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#a1887f',
     padding: 15,
     borderRadius: 10,
     width: '100%',
@@ -135,12 +136,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   saveButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#8d6e63',
   },
   backButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: '#a67c52',
     marginTop: 10,
   },
   buttonText: {

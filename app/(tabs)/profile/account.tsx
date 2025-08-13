@@ -1,8 +1,27 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert, FlatList } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useUser } from '../../UserContext';
+import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+
+type MenuOption = {
+  key: string;
+  label: string;
+  icon: keyof typeof FontAwesome.glyphMap;
+  path?: string;
+};
+
+const MENU_OPTIONS: MenuOption[] = [
+  { key: 'scan-qr', label: 'Scan QR Code', icon: 'qrcode', path: '/qr-scanner' },
+  { key: 'my-account', label: 'My Account', icon: 'user' },
+  { key: 'my-bank-accounts', label: 'My Bank Accounts', icon: 'credit-card' },
+  { key: 'help-support', label: 'Help and Support', icon: 'question-circle' },
+  { key: 'settings', label: 'Settings', icon: 'cog' },
+  { key: 'about', label: 'About', icon: 'info-circle' },
+  { key: 'store', label: 'Store', icon: 'shopping-bag' },
+];
 
 // Resolve API base for Expo Go / simulator
 const getApiUrl = () => {
@@ -27,7 +46,7 @@ const getApiUrl = () => {
 const API_URL = getApiUrl();
 
 export default function AccountScreen() {
-  const { user } = useUser();
+  const { user, setUser } = useUser();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hsbcData, setHsbcData] = useState<any>(null);
@@ -134,120 +153,176 @@ export default function AccountScreen() {
     birthdate: '1990-01-01',
     gender: 'Prefer not to say',
   };
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // Immediate logout for reliable behavior across platforms (including web)
+    setUser(null);
+  };
+
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.profileContainer}>
-        <Image source={{ uri: info.icon }} style={styles.avatar} />
-        <ThemedText type="title" style={styles.username}>{info.username}</ThemedText>
-        <Text style={styles.email}>{info.email}</Text>
-      </View>
-      <TouchableOpacity style={styles.connectButton} onPress={connectHsbc} disabled={loading}>
-        <Text style={styles.connectButtonText}>{loading ? 'Connecting…' : 'Connect HSBC (Sandbox)'}</Text>
-      </TouchableOpacity>
-      <Text style={styles.serverHint}>Server: {API_URL}</Text>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      {loading ? (
-        <View style={{ paddingVertical: 16 }}>
-          <ActivityIndicator color="#8d6e63" />
+      <ScrollView style={styles.scrollView}>
+        <ThemedText type="title" style={styles.title}>My Account</ThemedText>
+        
+        <View style={styles.profileContainer}>
+          <Image source={{ uri: info.icon }} style={styles.avatar} />
+          <ThemedText type="title" style={styles.username}>{info.username}</ThemedText>
+          <Text style={styles.email}>{info.email}</Text>
         </View>
-      ) : null}
-      <View style={{ flex: 1, minHeight: 0 }}>
-      {hsbcData ? (
-        <ScrollView style={[styles.resultsBox, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 24 }}>
-          <Text style={styles.sectionTitle}>HSBC Personal Credit Cards</Text>
-          {hsbcData.meta ? (
-            <View style={{ marginBottom: 12 }}>
-              {hsbcData.meta.LastUpdated ? <Text style={styles.metaText}>LastUpdated: {hsbcData.meta.LastUpdated}</Text> : null}
-              {hsbcData.meta.TotalResults !== undefined ? <Text style={styles.metaText}>TotalResults: {hsbcData.meta.TotalResults}</Text> : null}
-            </View>
-          ) : null}
-          {cards.map((item) => (
-            <View key={item.id} style={styles.cardContainer}>
-              <TouchableOpacity onPress={() => toggle(item.id)} style={styles.headerRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>{item.cardName || '未命名信用卡'}</Text>
-                  {!!item.brandName && <Text style={styles.cardBrand}>{item.brandName}</Text>}
-                </View>
-                <Text style={styles.toggleText}>{expanded[item.id] ? '−' : '+'}</Text>
-              </TouchableOpacity>
-              {expanded[item.id] && (
-                <View style={styles.detailBox}>
-                  {!!item.schemes?.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>卡組織</Text>
-                      <Text style={styles.valueText}>{item.schemes.join(', ')}</Text>
-                    </View>
-                  )}
-                  {!!item.servicing?.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>服務渠道</Text>
-                      <Text style={styles.valueText}>{item.servicing.join('、')}</Text>
-                    </View>
-                  )}
-                  {!!item.cardCurrencies?.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>貨幣</Text>
-                      <Text style={styles.valueText}>{item.cardCurrencies.join(', ')}</Text>
-                    </View>
-                  )}
-                  {item.minAge !== undefined && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>最低年齡</Text>
-                      <Text style={styles.valueText}>{item.minAge}</Text>
-                    </View>
-                  )}
-                  {!!item.incomeNotes.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>收入要求</Text>
-                      {item.incomeNotes.map((n, idx) => (
-                        <Text key={`in-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                      ))}
-                    </View>
-                  )}
-                  {!!item.features.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>特色/優惠</Text>
-                      {item.features.map((n, idx) => (
-                        <Text key={`ft-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                      ))}
-                    </View>
-                  )}
-                  {!!item.fees.length && (
-                    <View style={styles.sectionBlock}>
-                      <Text style={styles.subTitle}>費用/利率</Text>
-                      {item.fees.map((n, idx) => (
-                        <Text key={`fe-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                      ))}
-                    </View>
-                  )}
-                  {(item.productURL || item.applyURL) && (
-                    <View style={[styles.sectionBlock, { flexDirection: 'row', gap: 16 }] }>
-                      {!!item.productURL && (
-                        <TouchableOpacity onPress={() => openUrl(item.productURL)}>
-                          <Text style={styles.linkText}>產品詳情</Text>
-                        </TouchableOpacity>
-                      )}
-                      {!!item.applyURL && (
-                        <TouchableOpacity onPress={() => openUrl(item.applyURL)}>
-                          <Text style={styles.linkText}>立即申請</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
-      ) : (
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Log out</Text>
+        </TouchableOpacity>
+        
         <View style={styles.infoSection}>
           <Text style={styles.label}>Birthdate</Text>
           <Text style={styles.value}>{info.birthdate}</Text>
           <Text style={styles.label}>Gender</Text>
           <Text style={styles.value}>{info.gender}</Text>
         </View>
-      )}
-      </View>
+        
+        <ThemedText type="subtitle" style={styles.sectionTitle}>HSBC Credit Cards</ThemedText>
+        
+        <TouchableOpacity style={styles.connectButton} onPress={connectHsbc} disabled={loading}>
+          <Text style={styles.connectButtonText}>{loading ? 'Connecting…' : 'Connect HSBC (Sandbox)'}</Text>
+        </TouchableOpacity>
+        
+        <Text style={styles.serverHint}>Server: {API_URL}</Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {loading ? (
+          <View style={{ paddingVertical: 16 }}>
+            <ActivityIndicator color="#8d6e63" />
+          </View>
+        ) : null}
+        
+        <View style={{ flex: 1, minHeight: 0 }}>
+          {hsbcData ? (
+            <ScrollView style={[styles.resultsBox, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 24 }}>
+              {hsbcData.meta ? (
+                <View style={{ marginBottom: 12 }}>
+                  {hsbcData.meta.LastUpdated ? <Text style={styles.metaText}>LastUpdated: {hsbcData.meta.LastUpdated}</Text> : null}
+                  {hsbcData.meta.TotalResults !== undefined ? <Text style={styles.metaText}>TotalResults: {hsbcData.meta.TotalResults}</Text> : null}
+                </View>
+              ) : null}
+              {cards.map((item) => (
+                <View key={item.id} style={styles.cardContainer}>
+                  <TouchableOpacity onPress={() => toggle(item.id)} style={styles.headerRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle}>{item.cardName || '未命名信用卡'}</Text>
+                      {!!item.brandName && <Text style={styles.cardBrand}>{item.brandName}</Text>}
+                    </View>
+                    <Text style={styles.toggleText}>{expanded[item.id] ? '−' : '+'}</Text>
+                  </TouchableOpacity>
+                  {expanded[item.id] && (
+                    <View style={styles.detailBox}>
+                      {!!item.schemes?.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>卡組織</Text>
+                          <Text style={styles.valueText}>{item.schemes.join(', ')}</Text>
+                        </View>
+                      )}
+                      {!!item.servicing?.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>服務渠道</Text>
+                          <Text style={styles.valueText}>{item.servicing.join('、')}</Text>
+                        </View>
+                      )}
+                      {!!item.cardCurrencies?.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>貨幣</Text>
+                          <Text style={styles.valueText}>{item.cardCurrencies.join(', ')}</Text>
+                        </View>
+                      )}
+                      {item.minAge !== undefined && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>最低年齡</Text>
+                          <Text style={styles.valueText}>{item.minAge}</Text>
+                        </View>
+                      )}
+                      {!!item.incomeNotes.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>收入要求</Text>
+                          {item.incomeNotes.map((n, idx) => (
+                            <Text key={`in-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
+                          ))}
+                        </View>
+                      )}
+                      {!!item.features.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>特色/優惠</Text>
+                          {item.features.map((n, idx) => (
+                            <Text key={`ft-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
+                          ))}
+                        </View>
+                      )}
+                      {!!item.fees.length && (
+                        <View style={styles.sectionBlock}>
+                          <Text style={styles.subTitle}>費用/利率</Text>
+                          {item.fees.map((n, idx) => (
+                            <Text key={`fe-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
+                          ))}
+                        </View>
+                      )}
+                      {(item.productURL || item.applyURL) && (
+                        <View style={[styles.sectionBlock, { flexDirection: 'row', gap: 16 }] }>
+                          {!!item.productURL && (
+                            <TouchableOpacity onPress={() => openUrl(item.productURL)}>
+                              <Text style={styles.linkText}>產品詳情</Text>
+                            </TouchableOpacity>
+                          )}
+                          {!!item.applyURL && (
+                            <TouchableOpacity onPress={() => openUrl(item.applyURL)}>
+                              <Text style={styles.linkText}>立即申請</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.infoSection}>
+              <Text style={styles.label}>Birthdate</Text>
+              <Text style={styles.value}>{info.birthdate}</Text>
+              <Text style={styles.label}>Gender</Text>
+              <Text style={styles.value}>{info.gender}</Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Profile Menu Items */}
+        <ThemedText type="subtitle" style={styles.sectionTitle}>More Options</ThemedText>
+        <View style={styles.menuContainer}>
+          <FlatList
+            data={MENU_OPTIONS}
+            scrollEnabled={false}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.option}
+                onPress={() => {
+                  if (item.path) {
+                    router.push(item.path as any);
+                  }
+                }}
+              >
+                <View style={styles.optionContent}>
+                  <FontAwesome 
+                    name={item.icon} 
+                    size={20} 
+                    color="#5d4037" 
+                    style={styles.optionIcon} 
+                  />
+                  <Text style={styles.optionText}>{item.label}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            keyExtractor={item => item.key}
+            contentContainerStyle={styles.list}
+          />
+        </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -257,6 +332,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f4e9',
     padding: 24,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 24,
+    color: '#5d4037',
+    marginBottom: 16,
+  },
+  menuContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#5d4037',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  list: {
+    paddingBottom: 16,
+  },
+  option: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#d7ccc8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionIcon: {
+    marginRight: 12,
+    width: 24,
+    textAlign: 'center',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#5d4037',
+    flex: 1,
+    fontWeight: '600',
   },
   profileContainer: {
     alignItems: 'center',
@@ -291,6 +415,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  logoutButton: {
+    backgroundColor: '#b71c1c',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   serverHint: {
     fontSize: 12,
     color: '#8d6e63',
@@ -308,12 +444,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#d7ccc8',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#5d4037',
-    fontWeight: '700',
-    marginBottom: 10,
   },
   metaText: {
     fontSize: 12,

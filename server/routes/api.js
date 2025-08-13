@@ -15,17 +15,52 @@ router.get('/users', async (req, res) => {
     const users = await User.find();
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Failed to fetch users', message: err.message });
   }
 });
 
+// Get user by email
+router.get('/users/email/:email', async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error('Error fetching user by email:', err);
+    res.status(500).json({ error: 'Failed to fetch user', message: err.message });
+  }
+});
+
+// Create new user
 router.post('/users', async (req, res) => {
   try {
-    const user = new User(req.body);
+    // Check if user with this email already exists
+    const existingUser = await User.findOne({ email: req.body.email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: 'User with this email already exists',
+        user: existingUser
+      });
+    }
+    
+    const user = new User({
+      name: req.body.name,
+      email: req.body.email,
+      // Add any other required fields here
+    });
+    
     await user.save();
+    console.log('New user created:', { id: user._id, email: user.email });
     res.status(201).json(user);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Error creating user:', err);
+    res.status(400).json({ 
+      error: 'Failed to create user',
+      message: err.message 
+    });
   }
 });
 
@@ -94,20 +129,43 @@ router.get('/hsbc/personal-credit-cards', async (req, res) => {
 // Transactions
 router.get('/transactions', async (req, res) => {
   try {
-    const transactions = await Transaction.find().populate('userId');
+    console.log('Fetching transactions...');
+    const transactions = await Transaction.find({});
+    console.log('Found transactions:', transactions);
     res.json(transactions);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error fetching transactions:', err);
+    res.status(500).json({ error: 'Failed to fetch transactions', details: err.message });
   }
 });
 
 router.post('/transactions', async (req, res) => {
   try {
-    const transaction = new Transaction(req.body);
+    console.log('Creating transaction with data:', req.body);
+    
+    // Basic validation
+    if (!req.body.userId || !req.body.amount || !req.body.category) {
+      throw new Error('Missing required fields');
+    }
+
+    // Ensure date is properly formatted
+    const transactionData = {
+      ...req.body,
+      date: req.body.date ? new Date(req.body.date) : new Date()
+    };
+    
+    const transaction = new Transaction(transactionData);
     await transaction.save();
+    
+    console.log('Transaction created:', transaction);
     res.status(201).json(transaction);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('Error creating transaction:', err);
+    res.status(400).json({ 
+      error: 'Failed to create transaction',
+      details: err.message,
+      receivedData: req.body
+    });
   }
 });
 

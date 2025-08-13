@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Alert, Dimensions, FlatList, KeyboardAvoidingView, NativeModules, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
+import { signInWithGoogle, extractUserInfo } from './utils/firebase';
 
 // Derive API URL based on environment and platform to avoid hardcoded LAN IPs
 const getApiUrl = () => {
@@ -41,13 +43,15 @@ export type User = {
 
 interface LoginScreenProps {
   onLogin: (user: User) => void;
+  navigation?: any;
 }
 
-export default function LoginScreen({ onLogin }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [signInEmail, setSignInEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { width, height } = Dimensions.get('window');
   const isSmallDevice = width < 375;
   const [activeIndex, setActiveIndex] = useState(0);
@@ -201,6 +205,57 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     }
   };
 
+  const findOrCreateUserByEmail = async (nameFromGoogle: string | null, emailFromGoogle: string | null) => {
+    if (!emailFromGoogle) {
+      Alert.alert('Error', 'No email provided from Google');
+      return;
+    }
+    
+    try {
+      const resp = await fetch(`${API_URL}/users`);
+      if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+      const users = await resp.json();
+      if (Array.isArray(users)) {
+        const existing = users.find((u: User) => u.email === emailFromGoogle);
+        if (existing) {
+          onLogin(existing);
+          return;
+        }
+      }
+      // Not found, create
+      const createResp = await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: nameFromGoogle || 'Google User', 
+          email: emailFromGoogle 
+        }),
+      });
+      if (!createResp.ok) throw new Error(`HTTP error! status: ${createResp.status}`);
+      const created = await createResp.json();
+      if (created?._id) {
+        onLogin(created);
+      } else {
+        throw new Error('Failed to create user');
+      }
+    } catch (e: any) {
+      Alert.alert('Google Sign-In Error', e.message || 'Failed to sign in with Google.');
+    }
+  };
+
+  const handleGooglePress = async () => {
+    try {
+      setGoogleLoading(true);
+      const credential = await signInWithGoogle();
+      const { displayName, email } = extractUserInfo(credential);
+      await findOrCreateUserByEmail(displayName, email);
+    } catch (error: any) {
+      Alert.alert('Google Sign-In Error', error.message || 'Failed to sign in with Google');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -347,36 +402,47 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               {loading ? 'Creating Account...' : 'Create Account'}
             </Text>
           </TouchableOpacity>
+          
+          {/* Or divider */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', width: 300, marginVertical: 10 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: '#e6d3b3' }} />
+            <Text style={{ marginHorizontal: 8, color: '#a1887f' }}>or</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: '#e6d3b3' }} />
+          </View>
+
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              paddingVertical: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              width: 300,
+              borderWidth: 1,
+              borderColor: '#d7ccc8',
+              shadowColor: '#cab08a',
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              opacity: googleLoading ? 0.7 : 1,
+            }}
+            onPress={handleGooglePress}
+            disabled={googleLoading}
+          >
+            <FontAwesome name="google" size={18} color="#db4437" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#5d4037', fontWeight: '600', fontSize: 16 }}>
+              {googleLoading ? 'Connecting…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
           {/* Sign In Section */}
           <View style={{ width: 300, marginTop: 20, marginBottom: 40, alignItems: 'center' }}>
             <Text style={{ color: '#cab08a', fontSize: 15, textAlign: 'center' }}>
               Already have an account?{' '}
               <Text 
                 style={{ color: '#8d6e63', fontWeight: '600', textDecorationLine: 'underline' }}
-                onPress={() => {
-                  Alert.prompt(
-                    'Sign In',
-                    'Please enter your email address:',
-                    [
-                      {
-                        text: 'Cancel',
-                        style: 'cancel',
-                      },
-                      {
-                        text: 'Sign In',
-                        onPress: (email) => {
-                          if (email) {
-                            setSignInEmail(email);
-                            handleSignIn();
-                          }
-                        },
-                      },
-                    ],
-                    'plain-text',
-                    '',
-                    'email-address'
-                  );
-                }}
+                onPress={() => navigation?.navigate('SignIn')}
               >
                 Sign in
               </Text>
