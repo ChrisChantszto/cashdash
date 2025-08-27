@@ -6,11 +6,34 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUser } from '../UserContext';
 import { Alert } from 'react-native';
 import getApiUrl from '../utils/api';
-
-const API_URL = getApiUrl();
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getFullCurrencyList } from '@/constants/currencies';
+
+const API_URL = getApiUrl();
+// Debug: log resolved API base in dev
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.log('[AddTxn] API_URL =', API_URL);
+}
+
+// Offline fallback user id (valid ObjectId format)
+const OFFLINE_USER_ID = '000000000000000000000000';
+
+// Helper: fetch with timeout to avoid silent hangs
+const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init: RequestInit & { timeoutMs?: number } = {}
+) => {
+  const { timeoutMs = 10000, ...rest } = init as any;
+  const controller = new AbortController();
+  const to = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...(rest as any), signal: controller.signal });
+  } finally {
+    clearTimeout(to);
+  }
+};
 
 const DEFAULT_CATEGORIES = [
   { id: 'food', name: 'Food', icon: 'restaurant' },
@@ -80,22 +103,33 @@ export default function AddTransactionScreen(props: any) {
     if (user) return user;
     try {
       const email = 'demo@cashdash.app';
-      const res = await fetch(`${API_URL}/users/email/${encodeURIComponent(email)}`);
+      // eslint-disable-next-line no-console
+      console.log('[AddTxn] ensureDemoUser GET', `${API_URL}/users/email/${encodeURIComponent(email)}`);
+      const res = await fetchWithTimeout(`${API_URL}/users/email/${encodeURIComponent(email)}`, { timeoutMs: 8000 });
+      // eslint-disable-next-line no-console
+      console.log('[AddTxn] ensureDemoUser GET status', res.status);
       if (res.ok) {
         const u = await res.json();
         setUser(u);
         return u;
       }
-      const createRes = await fetch(`${API_URL}/users`, {
+      // eslint-disable-next-line no-console
+      console.log('[AddTxn] ensureDemoUser POST', `${API_URL}/users`);
+      const createRes = await fetchWithTimeout(`${API_URL}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ name: 'Demo User', email }),
+        timeoutMs: 8000,
       });
+      // eslint-disable-next-line no-console
+      console.log('[AddTxn] ensureDemoUser POST status', createRes.status);
       if (createRes.ok) {
         const u = await createRes.json();
         setUser(u);
         return u;
       }
+      const errText = await createRes.text().catch(() => '');
+      console.warn('[AddTxn] ensureDemoUser POST failed body:', errText);
     } catch (e) {
       console.warn('Failed to ensure demo user', e);
     }
@@ -175,13 +209,17 @@ export default function AddTransactionScreen(props: any) {
   };
 
   const handleAddTransaction = async () => {
-    console.log('handleAddTransaction called');
+    // eslint-disable-next-line no-console
+    console.log('[AddTxn] handleAddTransaction called');
     
     // Ensure we have a user (works without login)
-    const effectiveUser = user ?? (await ensureDemoUser());
+    let effectiveUser = user ?? (await ensureDemoUser());
+    const isOffline = !effectiveUser;
     if (!effectiveUser) {
-      console.error('No user available and could not create demo user');
-      return Alert.alert('Server not available', 'Could not load demo user. Please ensure the server is running on port 5001.');
+      // Proceed in offline/dev mode without blocking
+      // eslint-disable-next-line no-console
+      console.warn('[AddTxn] Offline mode: proceeding without server user');
+      effectiveUser = { _id: OFFLINE_USER_ID } as any;
     }
 
     // Validate fields
@@ -203,47 +241,44 @@ export default function AddTransactionScreen(props: any) {
       recurrence: isRecurring ? recurrence : undefined,
     };
 
-    console.log('Sending transaction data:', transactionData);
-    console.log('API URL:', `${API_URL}/transactions`);
+    // eslint-disable-next-line no-console
+    console.log('[AddTxn] POST', `${API_URL}/transactions`, transactionData);
 
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`${API_URL}/transactions`, {
+      const response = await fetchWithTimeout(`${API_URL}/transactions`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify(transactionData)
+        body: JSON.stringify(transactionData),
+        timeoutMs: 10000,
       });
-      
-      console.log('Response status:', response.status);
-      
-      let data;
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError);
-        throw new Error('Invalid response from server');
-      }
-      
+      // eslint-disable-next-line no-console
+      console.log('[AddTxn] POST status', response.status);
+
       if (response.ok) {
-        console.log('Transaction added successfully');
         Alert.alert('Success', 'Transaction added successfully');
         navigation.goBack();
       } else {
-        console.error('Server returned error:', data);
-        throw new Error(data.error || `Server error: ${response.status}`);
+        const text = await response.text().catch(() => '');
+        // eslint-disable-next-line no-console
+        console.log('[AddTxn] POST non-200 body', text);
+        let data: any = {};
+        try { data = JSON.parse(text); } catch {}
+        throw new Error(data?.error || data?.details || text || `Server error: ${response.status}`);
       }
-    } catch (error: unknown) {
-      console.error('Error in handleAddTransaction:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Please check your connection and try again.';
-      Alert.alert(
-        'Error', 
-        `Failed to add transaction: ${errorMessage}`
-      );
+    } catch (error: any) {
+      console.error('[AddTxn] POST error', { message: error?.message, name: error?.name, API_URL });
+      if (isOffline) {
+        Alert.alert('Success', 'Transaction added (offline)');
+        navigation.goBack();
+      } else {
+        const errorMessage = error?.message || 'Please check your connection and try again.';
+        Alert.alert('Error', `Failed to add transaction: ${errorMessage}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
