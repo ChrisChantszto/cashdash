@@ -1,29 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Modal, Switch } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useUser } from '../UserContext';
-import { Alert } from 'react-native';
 import getApiUrl from '../utils/api';
-
-const API_URL = getApiUrl();
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { getFullCurrencyList } from '@/constants/currencies';
 
-const DEFAULT_CATEGORIES = [
-  { id: 'food', name: 'Food', icon: 'restaurant' },
-  { id: 'shopping', name: 'Shopping', icon: 'shopping-bag' },
-  { id: 'transport', name: 'Transport', icon: 'directions-car' },
-  { id: 'entertainment', name: 'Entertainment', icon: 'movie' },
-  { id: 'bills', name: 'Bills', icon: 'receipt' },
+const API_URL = getApiUrl();
+
+const DEFAULT_INCOME_CATEGORIES = [
+  { id: 'salary', name: 'Salary', icon: 'work' },
+  { id: 'freelance', name: 'Freelance', icon: 'handyman' },
+  { id: 'bonus', name: 'Bonus', icon: 'request-quote' },
+  { id: 'interest', name: 'Interest', icon: 'savings' },
+  { id: 'gift', name: 'Gift', icon: 'card-giftcard' },
   { id: 'other', name: 'Other', icon: 'more-horiz' },
 ] as const;
 
 const ALL_CURRENCIES = getFullCurrencyList();
 
-export default function AddTransactionScreen(props: any) {
+export default function AddIncomeScreen(props: any) {
   const forwardedParams = props?.forwardedParams;
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -32,7 +31,7 @@ export default function AddTransactionScreen(props: any) {
   const [transactionDate, setTransactionDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; icon: any }>>(
-    [...DEFAULT_CATEGORIES]
+    [...DEFAULT_INCOME_CATEGORIES]
   );
   const [currency, setCurrency] = useState<string>('HKD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
@@ -75,7 +74,6 @@ export default function AddTransactionScreen(props: any) {
     });
   }, []);
 
-  // Ensure a user exists (works without login)
   const ensureDemoUser = useCallback(async () => {
     if (user) return user;
     try {
@@ -102,11 +100,9 @@ export default function AddTransactionScreen(props: any) {
     return null;
   }, [API_URL, user, setUser]);
 
-  // Parse date from params if provided (from calendar selection)
   useEffect(() => {
     const p = (forwardedParams ?? route.params ?? {}) as any;
     if (p.selectedDate) {
-      // Parse the date string from params (format: YYYY-MM-DD)
       const [year, month, day] = String(p.selectedDate).split('-').map(Number);
       const selectedDate = new Date(year, month - 1, day);
       setTransactionDate(selectedDate);
@@ -128,10 +124,10 @@ export default function AddTransactionScreen(props: any) {
         }
       }
     }
-    // If user created a custom category of expense type, merge it into the grid (before 'Other')
+    // If user created a custom income category, merge into grid before 'Other'
     if (
       p.selectedCategory && p.selectedCategoryName && p.selectedCategoryIcon &&
-      (!p.selectedCategoryType || p.selectedCategoryType === 'expense')
+      p.selectedCategoryType === 'income'
     ) {
       const newCat = {
         id: String(p.selectedCategory),
@@ -174,21 +170,15 @@ export default function AddTransactionScreen(props: any) {
     });
   };
 
-  const handleAddTransaction = async () => {
-    console.log('handleAddTransaction called');
-    
-    // Ensure we have a user (works without login)
+  const handleAddIncome = async () => {
     const effectiveUser = user ?? (await ensureDemoUser());
     if (!effectiveUser) {
-      console.error('No user available and could not create demo user');
       return Alert.alert('Server not available', 'Could not load demo user. Please ensure the server is running on port 5001.');
     }
 
-    // Validate fields
     const sanitized = String(amount).replace(/[^0-9.]/g, '');
     const parsedAmount = parseFloat(sanitized);
     if (!sanitized || Number.isNaN(parsedAmount) || !selectedCategory) {
-      console.error('Missing required fields', { amount, selectedCategory });
       return Alert.alert('Error', 'Please enter an amount and select a category');
     }
 
@@ -197,55 +187,28 @@ export default function AddTransactionScreen(props: any) {
       amount: parsedAmount,
       category: selectedCategory,
       description: note,
-      date: toLocalYMD(transactionDate), // YYYY-MM-DD local date to match calendar
+      date: toLocalYMD(transactionDate),
       currency,
       recurring: isRecurring,
       recurrence: isRecurring ? recurrence : undefined,
+      // type not stored in backend; category name distinguishes
     };
 
-    console.log('Sending transaction data:', transactionData);
-    console.log('API URL:', `${API_URL}/transactions`);
-
-    setIsSubmitting(true);
-    
     try {
       const response = await fetch(`${API_URL}/transactions`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(transactionData)
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(transactionData),
       });
-      
-      console.log('Response status:', response.status);
-      
-      let data;
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError);
-        throw new Error('Invalid response from server');
-      }
-      
       if (response.ok) {
-        console.log('Transaction added successfully');
-        Alert.alert('Success', 'Transaction added successfully');
+        Alert.alert('Success', 'Income added successfully');
         navigation.goBack();
       } else {
-        console.error('Server returned error:', data);
-        throw new Error(data.error || `Server error: ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        Alert.alert('Error', data.error || 'Failed to add income');
       }
-    } catch (error: unknown) {
-      console.error('Error in handleAddTransaction:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Please check your connection and try again.';
-      Alert.alert(
-        'Error', 
-        `Failed to add transaction: ${errorMessage}`
-      );
-    } finally {
-      setIsSubmitting(false);
+    } catch (e) {
+      Alert.alert('Error', 'Please check your connection and try again.');
     }
   };
 
@@ -260,35 +223,28 @@ export default function AddTransactionScreen(props: any) {
           <MaterialIcons name="close" size={24} color="#666" />
         </TouchableOpacity>
         <View style={styles.headerSwitchContainer}>
-          <TouchableOpacity style={[styles.headerSwitchBtn, styles.headerSwitchBtnActive]}>
-            <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.headerSwitchText, styles.headerSwitchTextActive]}>Add Transaction</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerSwitchBtn}
-            onPress={() => navigation.navigate('AddSwitcher' as never, { activeTab: 'income' } as never)}
+            onPress={() => navigation.navigate('AddSwitcher' as never, { activeTab: 'expense' } as never)}
           >
-            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.headerSwitchText}>Add Income</Text>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.headerSwitchText}>Add Transaction</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.headerSwitchBtn, styles.headerSwitchBtnActive]}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.headerSwitchText, styles.headerSwitchTextActive]}>Add Income</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.cancelButton} />
       </View>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingView}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoidingView}>
         <ScrollView contentContainerStyle={styles.scrollView}>
           {/* Date */}
           <View style={[styles.section, styles.sectionFirst, styles.sectionTightBottom]}>
             <ThemedText style={styles.sectionTitle}>Date</ThemedText>
-            <TouchableOpacity 
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker((prev) => !prev)}
-            >
+            <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker((prev) => !prev)}>
               <MaterialIcons name="calendar-today" size={20} color="#8d6e63" />
               <Text style={styles.dateText}>{formatDate(transactionDate)}</Text>
               <MaterialIcons name="keyboard-arrow-down" size={24} color="#8d6e63" />
             </TouchableOpacity>
-            
             {showDatePicker && (
               <DateTimePicker
                 value={transactionDate}
@@ -301,7 +257,7 @@ export default function AddTransactionScreen(props: any) {
             )}
           </View>
 
-          {/* Amount Input */}
+          {/* Amount */}
           <View style={styles.amountContainer}>
             <Text style={styles.currency}>{currencySymbol}</Text>
             <TextInput
@@ -344,6 +300,7 @@ export default function AddTransactionScreen(props: any) {
             </View>
           </View>
 
+          {/* Categories */}
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Category</ThemedText>
             <View style={styles.categoriesContainer}>
@@ -356,21 +313,14 @@ export default function AddTransactionScreen(props: any) {
                   ]}
                   onPress={() => {
                     if (category.id === 'other') {
-                      navigation.navigate('CategoryPicker', { categories, activeTab: 'expense' });
+                      navigation.navigate('CategoryPicker', { categories, activeTab: 'income' });
                     } else {
                       setSelectedCategory(category.id);
                     }
                   }}
                 >
-                  <MaterialIcons
-                    name={category.icon as any}
-                    size={24}
-                    color={selectedCategory === category.id ? '#fff' : '#8d6e63'}
-                  />
-                  <Text style={[
-                    styles.categoryText,
-                    selectedCategory === category.id && styles.categoryTextSelected,
-                  ]}>
+                  <MaterialIcons name={category.icon as any} size={24} color={selectedCategory === category.id ? '#fff' : '#8d6e63'} />
+                  <Text style={[styles.categoryText, selectedCategory === category.id && styles.categoryTextSelected]}>
                     {category.name}
                   </Text>
                 </TouchableOpacity>
@@ -403,7 +353,7 @@ export default function AddTransactionScreen(props: any) {
                   setIsRecurring(val);
                   if (val) {
                     // Open details screen to select frequency
-                    navigation.navigate('RecurringDetails' as never, { initial: recurrence ?? 'weekly' } as never);
+                    navigation.navigate('RecurringDetails' as never, { initial: (recurrence ?? 'weekly'), activeTab: 'income' } as never);
                   } else {
                     setRecurrence(null);
                   }
@@ -414,6 +364,7 @@ export default function AddTransactionScreen(props: any) {
             </View>
           </View>
 
+          {/* Note */}
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Note (Optional)</ThemedText>
             <TextInput
@@ -426,27 +377,13 @@ export default function AddTransactionScreen(props: any) {
             />
           </View>
 
+          {/* Actions */}
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
-              style={[styles.button, styles.cancelButton, styles.buttonSecondary]}
-              onPress={handleCancel}
-              disabled={isSubmitting}
-            >
+            <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={handleCancel} disabled={isSubmitting}>
               <Text style={styles.buttonSecondaryText}>Cancel</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.button,
-                styles.addButton,
-                (!amount || !selectedCategory || isSubmitting) && styles.addButtonDisabled
-              ]}
-              onPress={handleAddTransaction}
-              disabled={!amount || !selectedCategory || isSubmitting}
-            >
-              <Text style={styles.addButtonText}>
-                {isSubmitting ? 'Adding...' : 'Add'}
-              </Text>
+            <TouchableOpacity style={[styles.button, styles.addButton]} onPress={handleAddIncome} disabled={isSubmitting}>
+              <Text style={styles.addButtonText}>Save</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -467,7 +404,7 @@ export default function AddTransactionScreen(props: any) {
               <Text style={styles.modalTitle}>Select currency</Text>
               <View style={styles.modalHeaderSide} />
             </View>
-            <ScrollView style={styles.currencyList}>
+            <ScrollView style={[styles.currencyList, { marginBottom: 0 }]}>
               {ALL_CURRENCIES.map((c) => (
                 <TouchableOpacity
                   key={c}
@@ -492,6 +429,7 @@ export default function AddTransactionScreen(props: any) {
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8f4e9', paddingTop: 0, paddingHorizontal: 16 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -500,11 +438,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e6d3b3',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#5d4037',
-  },
+  cancelButton: { padding: 8 },
+  headerSpacer: { width: 24, height: 24 },
+  headerTitle: { color: '#5d4037', fontWeight: '600', fontSize: 18 },
   headerSwitchContainer: {
     flexDirection: 'row',
     backgroundColor: 'transparent',
@@ -528,164 +464,45 @@ const styles = StyleSheet.create({
   },
   headerSwitchText: { color: '#5d4037', fontWeight: '700', fontSize: 13 },
   headerSwitchTextActive: { color: '#a47148' },
-  cancelButton: {
-    padding: 8,
-  },
-  container: {
-    flex: 1,
-    paddingTop: 0,
-    backgroundColor: '#f8f4e9',
-    paddingHorizontal: 16,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  scrollView: {
-    flexGrow: 1,
-    paddingBottom: 40,
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff9f4',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  dateText: {
-    marginLeft: 10,
-    fontSize: 16,
-    color: '#5d4037',
-    flex: 1,
-  },
-  datePicker: {
-    marginTop: 10,
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  currency: {
-    fontSize: 32,
-    color: '#8d6e63',
-    marginRight: 5,
-    marginTop: 10,
-  },
-  amountInput: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#5d4037',
-    minWidth: 120,
-    textAlign: 'center',
-  },
-  currencyCode: {
-    fontSize: 16,
-    color: '#5d4037',
-    marginLeft: 8,
-    marginTop: 12,
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionFirst: {
-    marginTop: 16,
-  },
-  sectionTightBottom: {
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#5d4037',
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  currencyContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  currencyButton: {
-    width: '32%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 10,
-    backgroundColor: '#fff9f4',
-    borderWidth: 1,
-    borderColor: '#e6d3b3',
-  },
-  currencyButtonSelected: {
-    backgroundColor: '#8d6e63',
-    borderColor: '#8d6e63',
-  },
-  currencyButtonText: {
-    fontSize: 14,
-    color: '#5d4037',
-    fontWeight: '600',
-  },
-  currencyButtonTextSelected: {
-    color: '#fff',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#fff9f4',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e6d3b3',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  modalHeaderSide: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#5d4037',
-    marginBottom: 12,
-  },
-  currencyList: {
-    maxHeight: 260,
-    marginBottom: 0,
-  },
-  currencyListItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e6d3b3',
-  },
-  currencyListItemText: {
-    fontSize: 16,
-    color: '#5d4037',
-  },
-  modalCloseBtn: {
-    marginTop: 4,
-  },
+  keyboardAvoidingView: { flex: 1 },
+  scrollView: { flexGrow: 1, paddingBottom: 40 },
+  section: { marginBottom: 30 },
+  sectionFirst: { marginTop: 16 },
+  sectionTightBottom: { marginBottom: 12 },
+  sectionTitle: { color: '#5d4037', fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  dateButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff9f4', borderRadius: 10, padding: 12, marginBottom: 16 },
+  datePicker: { backgroundColor: '#fff9f4', marginTop: 10, borderRadius: 12 },
+  dateText: { marginLeft: 10, fontSize: 16, color: '#5d4037', flex: 1 },
+  amountContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 20 },
+  currency: { fontSize: 32, color: '#8d6e63', marginRight: 5, marginTop: 10 },
+  amountInput: { fontSize: 40, fontWeight: 'bold', color: '#5d4037', textAlign: 'center', minWidth: 120 },
+  currencyCode: { fontSize: 16, color: '#5d4037', marginLeft: 8, marginTop: 12, fontWeight: '600' },
+  categoriesContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  currencyContainer: { flexDirection: 'row', justifyContent: 'space-between' },
+  currencyButton: { width: '32%', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12, borderRadius: 10, backgroundColor: '#fff9f4', borderWidth: 1, borderColor: '#e6d3b3' },
+  currencyButtonSelected: { backgroundColor: '#8d6e63', borderColor: '#8d6e63' },
+  currencyButtonText: { fontSize: 14, color: '#5d4037', fontWeight: '600' },
+  currencyButtonTextSelected: { color: '#fff' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { width: '100%', maxWidth: 420, backgroundColor: '#fff9f4', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e6d3b3' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  modalHeaderSide: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#5d4037', marginBottom: 12 },
+  currencyList: { maxHeight: 260, marginBottom: 0 },
+  currencyListItem: { paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#e6d3b3' },
+  currencyListItemText: { fontSize: 16, color: '#5d4037' },
+  modalCloseBtn: { marginTop: 4 },
+  categoryButton: { width: '48%', backgroundColor: '#fff9f4', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  categoryButtonSelected: { backgroundColor: '#8d6e63', borderColor: '#8d6e63' },
+  categoryText: { color: '#5d4037', fontSize: 14, marginTop: 8 },
+  categoryTextSelected: { color: '#fff' },
+  noteInput: { minHeight: 90, backgroundColor: '#fff9f4', borderRadius: 10, padding: 12, color: '#5d4037', textAlignVertical: 'top', fontSize: 16 },
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 20 },
+  button: { flex: 1, padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  buttonSecondary: { backgroundColor: '#fff9f4', borderWidth: 1, borderColor: '#d7ccc8' },
+  buttonSecondaryText: { color: '#8d6e63', fontSize: 16, fontWeight: '600' },
+  addButton: { backgroundColor: '#8d6e63' },
+  addButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
   recurringRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -696,74 +513,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e6d3b3',
   },
-  recurringLabel: {
-    fontSize: 16,
-    color: '#5d4037',
-    fontWeight: '600',
-  },
-  categoryButton: {
-    width: '48%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 10,
-    backgroundColor: '#fff9f4',
-  },
-  categoryButtonSelected: {
-    backgroundColor: '#8d6e63',
-  },
-  categoryText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#5d4037',
-  },
-  categoryTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  noteInput: {
-    backgroundColor: '#fff9f4',
-    borderRadius: 10,
-    padding: 12,
-    minHeight: 90,
-    textAlignVertical: 'top',
-    fontSize: 16,
-    color: '#5d4037',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 10,
-  },
-  button: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButton: {
-    backgroundColor: '#8d6e63',
-  },
-  buttonSecondary: {
-    backgroundColor: '#fff9f4',
-    borderWidth: 1,
-    borderColor: '#d7ccc8',
-  },
-  buttonSecondaryText: {
-    color: '#8d6e63',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addButtonDisabled: {
-    backgroundColor: '#d7ccc8',
-    opacity: 0.7,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  recurringLabel: { fontSize: 16, color: '#5d4037', fontWeight: '600' },
 });

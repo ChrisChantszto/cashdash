@@ -2,37 +2,8 @@ import React, { useRef, useState } from 'react';
 import { Alert, Dimensions, FlatList, KeyboardAvoidingView, NativeModules, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { signInWithGoogle, extractUserInfo } from './utils/firebase';
+import getApiUrl from './utils/api';
 
-// Derive API URL based on environment and platform to avoid hardcoded LAN IPs
-const getApiUrl = () => {
-  const envUrl = process.env?.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    // Ensure '/api' suffix and no trailing slash
-    let url = envUrl.replace(/\/$/, '');
-    if (!/\/api$/.test(url)) {
-      url += '/api';
-    }
-    return url;
-  }
-  // Try to infer LAN IP from the JS bundle URL (works in Expo Go on device)
-  try {
-    const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
-    if (scriptURL) {
-      const { hostname } = new URL(scriptURL);
-      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        return `http://${hostname}:5001/api`;
-      }
-    }
-  } catch (e) {
-    // ignore and fall back
-  }
-  const base = Platform.select({
-    ios: 'http://localhost:5001',
-    android: 'http://10.0.2.2:5001',
-    default: 'http://localhost:5001',
-  });
-  return `${base}/api`;
-};
 const API_URL = getApiUrl();
 
 export type User = {
@@ -110,21 +81,12 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
     }
     
     setLoading(true);
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    // Use AbortController to enforce a real timeout that we can handle
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
     
     try {
-      // Add a timeout to prevent infinite loading
-      timeoutId = setTimeout(() => {
-        throw new Error('Connection timeout. The server is taking too long to respond.');
-      }, 5000); // 5 second timeout (reduced from 10s for better UX)
-
-      const response = await fetch(`${API_URL}/users`);
-      
-      // Clear the timeout as we got a response
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
-      }
+      const response = await fetch(`${API_URL}/users`, { signal: controller.signal });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -148,60 +110,28 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      // Clear timeout if still active
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      if (error.message.includes('Network request failed') || 
-          error.message.includes('Failed to fetch') ||
-          error.message.includes('Unable to connect to the server')) {
+      if (error?.name === 'AbortError') {
+        Alert.alert(
+          'Connection Timeout',
+          `The server at ${API_URL} is taking too long to respond. Please try again later.`,
+        );
+      } else if (error?.message?.includes('Network request failed') || 
+                 error?.message?.includes('Failed to fetch') ||
+                 error?.message?.includes('Unable to connect to the server')) {
         Alert.alert(
           'Server Unavailable',
           `Could not connect to the server at ${API_URL}.\n\n` +
-          'Please ensure that:' + '\n' +
+          'Please ensure that:\n' +
           '1. The server is running\n' +
           '2. The server address is correct\n' +
           '3. Your device is connected to the network',
-          [
-            {
-              text: 'OK',
-              onPress: () => setLoading(false)
-            },
-            {
-              text: 'Try Again',
-              onPress: () => handleSignIn()
-            }
-          ]
-        );
-      } else if (error.message.includes('timeout')) {
-        Alert.alert(
-          'Connection Timeout',
-          'The server is taking too long to respond. Please try again later.',
-          [
-            {
-              text: 'OK',
-              onPress: () => setLoading(false)
-            }
-          ]
         );
       } else {
-        Alert.alert(
-          'Error',
-          `Failed to sign in: ${error.message || 'Unknown error'}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => setLoading(false)
-            }
-          ]
-        );
+        Alert.alert('Error', `Failed to sign in: ${error?.message || 'Unknown error'}`);
       }
     } finally {
-      // Always ensure loading is set to false when done
-      if (loading) {
-        setLoading(false);
-      }
+      clearTimeout(timeoutId);
+      setLoading(false);
     }
   };
 

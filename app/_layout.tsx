@@ -7,13 +7,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, LogBox, Platform, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { User } from '../types';
+import getApiUrl from './utils/api';
 import { UserContext } from './UserContext';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from '@/components/MainTabs';
 
 // Import screens
-const LoginScreen = React.lazy(() => import('./LoginScreen'));
-const SignInScreen = React.lazy(() => import('./SignInScreen'));
 
 // Fix for web: Ensure all required polyfills are available
 if (typeof Buffer === 'undefined') {
@@ -24,11 +23,11 @@ if (typeof Buffer === 'undefined') {
 if (typeof process === 'undefined') {
   // @ts-ignore
   global.process = {
-    env: process?.env || {},
+    env: { NODE_ENV: 'development' } as any,
     nextTick: (callback: (...args: any[]) => void, ...args: any[]) => {
       return setTimeout(() => callback(...args), 0);
     },
-  };
+  } as any;
 }
 
 // Ignore specific warnings
@@ -54,6 +53,7 @@ export default function RootLayout() {
 
   const [user, setUser] = useState<User | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     async function prepare() {
@@ -85,10 +85,42 @@ export default function RootLayout() {
     setUser(userData);
   }, [user]);
 
-  const handleLogin = useCallback((userData: User) => {
-    console.log('Handling login for user:', userData);
-    setUserWithLogging(userData);
-  }, [setUserWithLogging]);
+  // Ensure a demo user exists so the app works without login
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const email = 'demo@cashdash.app';
+        // Try find existing user by email
+        const res = await fetch(`${API_URL}/users/email/${encodeURIComponent(email)}`);
+        if (cancelled) return;
+        if (res.ok) {
+          const u = await res.json();
+          if (!cancelled) setUserWithLogging(u);
+          return;
+        }
+        // Create user if missing (expect 404 from GET)
+        const createRes = await fetch(`${API_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ name: 'Demo User', email }),
+        });
+        if (cancelled) return;
+        if (createRes.ok) {
+          const u = await createRes.json();
+          if (!cancelled) setUserWithLogging(u);
+        } else {
+          console.warn('Failed to create demo user', await createRes.text());
+        }
+      } catch (e) {
+        console.warn('Could not bootstrap demo user. Is the server running on 5001?', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [API_URL, isReady, setUserWithLogging]);
+
+  // Login is disabled; app opens directly to MainTabs
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
@@ -107,7 +139,8 @@ export default function RootLayout() {
     );
   }
 
-  const RootView = Platform.OS === 'web' ? SafeAreaView : View;
+  // Use SafeAreaView on native to avoid content under the status bar/notch
+  const RootView = Platform.OS === 'web' ? View : SafeAreaView;
   
   return (
     <RootView style={styles.container} onLayout={onLayoutRootView} testID="root-view">
@@ -119,34 +152,13 @@ export default function RootLayout() {
               </View>
             }>
               <Stack.Navigator
-                key={user ? 'app' : 'auth'}
+                key={'app'}
                 screenOptions={{
                   headerShown: false,
                   animation: 'fade',
                 }}
               >
-                {user ? (
-                  // Authenticated screens
-                  <Stack.Screen name="MainTabs" component={MainTabs} />
-                ) : (
-                  // Auth screens
-                  <>
-                    <Stack.Screen name="Login" options={{ headerShown: false }}>
-                      {(props) => (
-                        <React.Suspense fallback={<View style={styles.loadingContainer}><ActivityIndicator /></View>}>
-                          <LoginScreen {...props} onLogin={handleLogin} />
-                        </React.Suspense>
-                      )}
-                    </Stack.Screen>
-                    <Stack.Screen name="SignIn" options={{ headerShown: false }}>
-                      {(props) => (
-                        <React.Suspense fallback={<View style={styles.loadingContainer}><ActivityIndicator /></View>}>
-                          <SignInScreen {...props} onLogin={handleLogin} />
-                        </React.Suspense>
-                      )}
-                    </Stack.Screen>
-                  </>
-                )}
+                <Stack.Screen name="MainTabs" component={MainTabs} />
               </Stack.Navigator>
             </React.Suspense>
             <StatusBar style="auto" />
@@ -159,6 +171,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f4e9',
   },
   loadingContainer: {
     flex: 1,

@@ -1,49 +1,32 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert, FlatList } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useUser } from '../../UserContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import getApiUrl from '../../utils/api';
 
 type MenuOption = {
   key: string;
   label: string;
   icon: keyof typeof FontAwesome.glyphMap;
-  path?: string;
+  screen?: string;
 };
 
 const MENU_OPTIONS: MenuOption[] = [
-  { key: 'scan-qr', label: 'Scan QR Code', icon: 'qrcode', path: '/qr-scanner' },
-  { key: 'my-account', label: 'My Account', icon: 'user' },
-  { key: 'my-bank-accounts', label: 'My Bank Accounts', icon: 'credit-card' },
-  { key: 'help-support', label: 'Help and Support', icon: 'question-circle' },
-  { key: 'settings', label: 'Settings', icon: 'cog' },
-  { key: 'about', label: 'About', icon: 'info-circle' },
-  { key: 'store', label: 'Store', icon: 'shopping-bag' },
+  { key: 'my-wallets', label: 'My Wallets', icon: 'credit-card', screen: 'Wallets' },
+  { key: 'connect-banks', label: 'Connect to Banks', icon: 'bank', screen: 'ConnectBanks' },
+  { key: 'help-support', label: 'Help and Support', icon: 'question-circle', screen: 'HelpSupport' },
+  { key: 'settings', label: 'Settings', icon: 'cog', screen: 'Settings' },
+  { key: 'notifications', label: 'Notifications', icon: 'bell', screen: 'Notifications' },
+  { key: 'language', label: 'Language', icon: 'globe', screen: 'Language' },
+  { key: 'about', label: 'About', icon: 'info-circle', screen: 'About' },
+  { key: 'feedback', label: 'My Feedback', icon: 'star', screen: 'Feedback' },
 ];
 
-// Resolve API base for Expo Go / simulator
-const getApiUrl = () => {
-  const envUrl = process.env?.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    let url = envUrl.replace(/\/$/, '');
-    if (!/\/api$/.test(url)) url += '/api';
-    return url;
-  }
-  try {
-    const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
-    if (scriptURL) {
-      const { hostname } = new URL(scriptURL);
-      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        return `http://${hostname}:5001/api`;
-      }
-    }
-  } catch {}
-  const base = Platform.select({ ios: 'http://localhost:5001', android: 'http://10.0.2.2:5001', default: 'http://localhost:5001' });
-  return `${base}/api`;
-};
 const API_URL = getApiUrl();
+const HERO_IMAGE = 'https://i.pinimg.com/1200x/2c/a7/ec/2ca7ec963f874a416d0254323ccbbbcd.jpg';
 
 export default function AccountScreen() {
   const { user, setUser } = useUser();
@@ -153,7 +136,7 @@ export default function AccountScreen() {
     birthdate: '1990-01-01',
     gender: 'Prefer not to say',
   };
-  const router = useRouter();
+  const navigation = useNavigation<any>();
 
   const handleLogout = () => {
     // Immediate logout for reliable behavior across platforms (including web)
@@ -163,165 +146,63 @@ export default function AccountScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <ThemedText type="title" style={styles.title}>My Account</ThemedText>
+        <View style={styles.hero}>
+          <ImageBackground source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover">
+            <View style={styles.heroOverlay} />
+            <View style={styles.heroContent}>
+              <Image source={{ uri: info.icon }} style={styles.avatarLarge} />
+              <ThemedText type="title" style={styles.nameText}>{info.username}</ThemedText>
+              <Text style={styles.taglineText}>Work hard in silence. Let your success be the noise.</Text>
+            </View>
+          </ImageBackground>
+        </View>
         
-        <View style={styles.profileContainer}>
-          <Image source={{ uri: info.icon }} style={styles.avatar} />
-          <ThemedText type="title" style={styles.username}>{info.username}</ThemedText>
-          <Text style={styles.email}>{info.email}</Text>
+        {/* Profile Menu Items */}
+        <ThemedText type="subtitle" style={styles.sectionTitle}>More Actions</ThemedText>
+        <View style={styles.menuContainer}>
+          <View style={styles.sectionCard}>
+            <FlatList
+              data={MENU_OPTIONS}
+              scrollEnabled={false}
+              renderItem={({ item, index }) => {
+                const hasName = !!user?.name;
+                const displayName = hasName ? String(user?.name).split(' ')[0] : '';
+                const poss = hasName
+                  ? (displayName.endsWith('s') ? `${displayName}'` : `${displayName}'s`)
+                  : 'My';
+                const computedLabel = hasName && item.label.startsWith('My ')
+                  ? item.label.replace(/^My\b/, poss)
+                  : item.label;
+
+                return (
+                  <TouchableOpacity
+                    style={[styles.row, index === MENU_OPTIONS.length - 1 && { borderBottomWidth: 0 }]}
+                    onPress={() => {
+                      if (item.screen) {
+                        navigation.navigate(item.screen as any);
+                      }
+                    }}
+                  >
+                    <View style={styles.rowLeft}>
+                      <FontAwesome
+                        name={item.icon}
+                        size={20}
+                        color="#5d4037"
+                        style={styles.rowIcon}
+                      />
+                      <Text style={styles.rowText}>{computedLabel}</Text>
+                    </View>
+                    <FontAwesome name="chevron-right" size={16} color="#8d6e63" />
+                  </TouchableOpacity>
+                );
+              }}
+              keyExtractor={item => item.key}
+            />
+          </View>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Log out</Text>
         </TouchableOpacity>
-        
-        <View style={styles.infoSection}>
-          <Text style={styles.label}>Birthdate</Text>
-          <Text style={styles.value}>{info.birthdate}</Text>
-          <Text style={styles.label}>Gender</Text>
-          <Text style={styles.value}>{info.gender}</Text>
-        </View>
-        
-        <ThemedText type="subtitle" style={styles.sectionTitle}>HSBC Credit Cards</ThemedText>
-        
-        <TouchableOpacity style={styles.connectButton} onPress={connectHsbc} disabled={loading}>
-          <Text style={styles.connectButtonText}>{loading ? 'Connecting…' : 'Connect HSBC (Sandbox)'}</Text>
-        </TouchableOpacity>
-        
-        <Text style={styles.serverHint}>Server: {API_URL}</Text>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {loading ? (
-          <View style={{ paddingVertical: 16 }}>
-            <ActivityIndicator color="#8d6e63" />
-          </View>
-        ) : null}
-        
-        <View style={{ flex: 1, minHeight: 0 }}>
-          {hsbcData ? (
-            <ScrollView style={[styles.resultsBox, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 24 }}>
-              {hsbcData.meta ? (
-                <View style={{ marginBottom: 12 }}>
-                  {hsbcData.meta.LastUpdated ? <Text style={styles.metaText}>LastUpdated: {hsbcData.meta.LastUpdated}</Text> : null}
-                  {hsbcData.meta.TotalResults !== undefined ? <Text style={styles.metaText}>TotalResults: {hsbcData.meta.TotalResults}</Text> : null}
-                </View>
-              ) : null}
-              {cards.map((item) => (
-                <View key={item.id} style={styles.cardContainer}>
-                  <TouchableOpacity onPress={() => toggle(item.id)} style={styles.headerRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>{item.cardName || '未命名信用卡'}</Text>
-                      {!!item.brandName && <Text style={styles.cardBrand}>{item.brandName}</Text>}
-                    </View>
-                    <Text style={styles.toggleText}>{expanded[item.id] ? '−' : '+'}</Text>
-                  </TouchableOpacity>
-                  {expanded[item.id] && (
-                    <View style={styles.detailBox}>
-                      {!!item.schemes?.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>卡組織</Text>
-                          <Text style={styles.valueText}>{item.schemes.join(', ')}</Text>
-                        </View>
-                      )}
-                      {!!item.servicing?.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>服務渠道</Text>
-                          <Text style={styles.valueText}>{item.servicing.join('、')}</Text>
-                        </View>
-                      )}
-                      {!!item.cardCurrencies?.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>貨幣</Text>
-                          <Text style={styles.valueText}>{item.cardCurrencies.join(', ')}</Text>
-                        </View>
-                      )}
-                      {item.minAge !== undefined && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>最低年齡</Text>
-                          <Text style={styles.valueText}>{item.minAge}</Text>
-                        </View>
-                      )}
-                      {!!item.incomeNotes.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>收入要求</Text>
-                          {item.incomeNotes.map((n, idx) => (
-                            <Text key={`in-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                          ))}
-                        </View>
-                      )}
-                      {!!item.features.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>特色/優惠</Text>
-                          {item.features.map((n, idx) => (
-                            <Text key={`ft-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                          ))}
-                        </View>
-                      )}
-                      {!!item.fees.length && (
-                        <View style={styles.sectionBlock}>
-                          <Text style={styles.subTitle}>費用/利率</Text>
-                          {item.fees.map((n, idx) => (
-                            <Text key={`fe-${item.id}-${idx}`} style={styles.bulletText}>• {n}</Text>
-                          ))}
-                        </View>
-                      )}
-                      {(item.productURL || item.applyURL) && (
-                        <View style={[styles.sectionBlock, { flexDirection: 'row', gap: 16 }] }>
-                          {!!item.productURL && (
-                            <TouchableOpacity onPress={() => openUrl(item.productURL)}>
-                              <Text style={styles.linkText}>產品詳情</Text>
-                            </TouchableOpacity>
-                          )}
-                          {!!item.applyURL && (
-                            <TouchableOpacity onPress={() => openUrl(item.applyURL)}>
-                              <Text style={styles.linkText}>立即申請</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.infoSection}>
-              <Text style={styles.label}>Birthdate</Text>
-              <Text style={styles.value}>{info.birthdate}</Text>
-              <Text style={styles.label}>Gender</Text>
-              <Text style={styles.value}>{info.gender}</Text>
-            </View>
-          )}
-        </View>
-        
-        {/* Profile Menu Items */}
-        <ThemedText type="subtitle" style={styles.sectionTitle}>More Options</ThemedText>
-        <View style={styles.menuContainer}>
-          <FlatList
-            data={MENU_OPTIONS}
-            scrollEnabled={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.option}
-                onPress={() => {
-                  if (item.path) {
-                    router.push(item.path as any);
-                  }
-                }}
-              >
-                <View style={styles.optionContent}>
-                  <FontAwesome 
-                    name={item.icon} 
-                    size={20} 
-                    color="#5d4037" 
-                    style={styles.optionIcon} 
-                  />
-                  <Text style={styles.optionText}>{item.label}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            keyExtractor={item => item.key}
-            contentContainerStyle={styles.list}
-          />
-        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -341,8 +222,82 @@ const styles = StyleSheet.create({
     color: '#5d4037',
     marginBottom: 16,
   },
+  // Hero header styles
+  hero: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: 200,
+    justifyContent: 'flex-end',
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(93,64,55,0.20)',
+  },
+  heroContent: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  avatarLarge: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: '#fff',
+    marginBottom: 10,
+    backgroundColor: '#d7ccc8',
+  },
+  nameText: {
+    fontSize: 22,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  taglineText: {
+    marginTop: 4,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.88)',
+  },
   menuContainer: {
     marginBottom: 24,
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#eee0d8',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0e6df',
+    backgroundColor: '#fff',
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowIcon: {
+    width: 24,
+    textAlign: 'center',
+    marginRight: 12,
+  },
+  rowText: {
+    fontSize: 16,
+    color: '#5d4037',
+    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 20,
@@ -416,7 +371,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: '#b71c1c',
+    backgroundColor: '#5d4037',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',

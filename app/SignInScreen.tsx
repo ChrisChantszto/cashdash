@@ -3,27 +3,8 @@ import { Alert, KeyboardAvoidingView, NativeModules, Platform, ScrollView, Style
 import { FontAwesome } from '@expo/vector-icons';
 import { signInWithGoogle, extractUserInfo } from './utils/firebase';
 import type { User } from './LoginScreen';
+import getApiUrl from './utils/api';
 
-// Derive API URL based on environment and platform
-const getApiUrl = () => {
-  const envUrl = process.env?.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    let url = envUrl.replace(/\/$/, '');
-    if (!/\/api$/.test(url)) url += '/api';
-    return url;
-  }
-  try {
-    const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
-    if (scriptURL) {
-      const { hostname } = new URL(scriptURL);
-      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-        return `http://${hostname}:5001/api`;
-      }
-    }
-  } catch {}
-  const base = Platform.select({ ios: 'http://localhost:5001', android: 'http://10.0.2.2:5001', default: 'http://localhost:5001' });
-  return `${base}/api`;
-};
 const API_URL = getApiUrl();
 
 interface SignInScreenProps {
