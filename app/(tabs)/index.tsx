@@ -38,6 +38,10 @@ const CATEGORY_META: Record<string, { label: string; icon: any }> = {
   other: { label: 'Other', icon: 'more-horiz' },
 };
 
+// Identify income categories to infer sign (+ income, - expense)
+const INCOME_CATEGORIES = new Set(['salary', 'freelance', 'bonus', 'interest', 'gift']);
+const isIncomeCategory = (cat?: string) => !!cat && INCOME_CATEGORIES.has(cat);
+
 // Configure calendar locale
 LocaleConfig.locales['en'] = {
   monthNames: [
@@ -129,7 +133,11 @@ export default function CalendarScreen() {
       data: items,
     }));
 
-  const totalForDay = expensesForDay.reduce((sum, t) => sum + (typeof t.amount === 'number' ? t.amount : parseFloat(String(t.amount) || '0')), 0);
+  const netForDay = expensesForDay.reduce((sum, t) => {
+    const amt = typeof t.amount === 'number' ? t.amount : parseFloat(String(t.amount) || '0');
+    const sign = isIncomeCategory(t.category) ? 1 : -1;
+    return sum + sign * (Number.isFinite(amt) ? amt : 0);
+  }, 0);
 
   const formatAmount = (n: number) => {
     if (Number.isNaN(n)) return '0.00';
@@ -335,7 +343,7 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       </View>
       <View style={styles.expensesMetaRow}>
-        <Text style={styles.expensesMetaText}>Total: ${formatAmount(totalForDay)}</Text>
+        <Text style={styles.expensesMetaText}>Total: {netForDay >= 0 ? '+' : ''}{formatAmount(netForDay)}</Text>
       </View>
 
       {groupMode === 'category' ? (
@@ -363,7 +371,7 @@ export default function CalendarScreen() {
                       <Text style={styles.noteText} numberOfLines={1}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.amountText}>${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
+                  <Text style={styles.amountText}>{isIncomeCategory(item.category) ? '+' : '-'}${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
                 </View>
               </View>
             );
@@ -389,7 +397,7 @@ export default function CalendarScreen() {
                       <Text style={styles.noteText} numberOfLines={1}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.amountText}>${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
+                  <Text style={styles.amountText}>{isIncomeCategory(item.category) ? '+' : '-'}${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
                 </View>
               </View>
             );
