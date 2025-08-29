@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import getApiUrl from '../../utils/api';
 
 const API_URL = getApiUrl();
@@ -32,7 +32,7 @@ export default function ConnectBanksScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
-        <ThemedText type="title" style={styles.title}>Connect to Banks</ThemedText>
+        <ThemedText type="title" style={styles.title}>Connect to Banks (Coming Soon)</ThemedText>
 
         <TouchableOpacity style={styles.primaryButton} onPress={connect} disabled={loading}>
           {loading ? (

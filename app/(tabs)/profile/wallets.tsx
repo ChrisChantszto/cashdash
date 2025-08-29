@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useNavigation } from '@react-navigation/native';
+import { ThemedView } from '@/components/ThemedView';
 import { FontAwesome } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const LINKED_WALLETS_DEFAULT = [
   { id: '1', name: 'HSBC Premier Credit Card', icon: 'credit-card' as const },
@@ -17,7 +17,7 @@ export default function WalletsScreen() {
   return (
     <ThemedView style={styles.container}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
-        <ThemedText type="title" style={styles.title}>My Wallets</ThemedText>
+        <ThemedText type="title" style={styles.title}>My Wallets (Coming Soon)</ThemedText>
 
         <TouchableOpacity
           style={styles.primaryButton}
