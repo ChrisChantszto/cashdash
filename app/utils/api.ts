@@ -36,3 +36,38 @@ export const getApiUrl = (): string => {
 };
 
 export default getApiUrl;
+
+// Types for currency conversion response
+export type ConvertResponse = {
+  success: boolean;
+  query: { from: string; to: string; amount: number };
+  date: string | null;
+  base: string; // likely 'EUR' on free plan
+  rate: number; // computed rate_to / rate_from
+  result: number; // amount * rate
+  meta?: { rFrom?: number; rTo?: number; source?: string };
+};
+
+/**
+ * Call backend currency convert endpoint.
+ * Example: await convertCurrency({ from: 'USD', to: 'HKD', amount: 25, date: '2024-12-31' })
+ */
+export async function convertCurrency(params: {
+  from: string;
+  to: string;
+  amount: number;
+  date?: string; // optional YYYY-MM-DD for historical
+}): Promise<ConvertResponse> {
+  const { from, to, amount, date } = params;
+  const qs = new URLSearchParams({ from, to, amount: String(amount) });
+  if (date) qs.set('date', date);
+  const url = `${getApiUrl()}/currency/convert?${qs.toString()}`;
+
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.error) {
+    const msg = data?.error || `HTTP ${res.status}`;
+    throw new Error(`Currency convert failed: ${msg}`);
+  }
+  return data as ConvertResponse;
+}

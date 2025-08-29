@@ -76,6 +76,11 @@ const ProfileStack = () => {
         options={{ title: 'Settings' }}
       />
       <ProfileStackNav.Screen
+        name="PrivacySecurity"
+        component={require('@/app/(tabs)/profile/privacy-security').default}
+        options={{ title: 'Privacy & Security' }}
+      />
+      <ProfileStackNav.Screen
         name="Notifications"
         component={require('@/app/(tabs)/profile/notifications').default}
         options={{ title: 'Notifications' }}

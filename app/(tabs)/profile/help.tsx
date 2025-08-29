@@ -35,7 +35,7 @@ export default function HelpSupportScreen() {
 
         {/* Contact */}
         <View style={[styles.card, { marginTop: 16 }]}>
-          <Text style={styles.text}>Can’t find your answer? Contact us for assistance.</Text>
+          <ThemedText style={styles.text}>Can’t find your answer? Contact us for assistance.</ThemedText>
           <TouchableOpacity style={styles.primaryButton} onPress={openMail}>
             <Text style={styles.primaryButtonText}>Email Support</Text>
           </TouchableOpacity>
@@ -86,13 +86,13 @@ const FAQS: { q: string; a: string }[] = [
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f4e9', padding: 24 },
-  title: { fontSize: 24, color: '#5d4037', marginBottom: 16 },
+  title: { fontSize: 24, marginBottom: 16, color: '#5d4037' },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#eee0d8' },
-  sectionHeading: { fontSize: 18, color: '#6d4c41', fontWeight: '700', marginBottom: 6 },
+  sectionHeading: { fontSize: 18, fontWeight: '700', marginBottom: 6, color: '#5d4037' },
   divider: { height: 1, backgroundColor: '#f0e6df', marginBottom: 6 },
   faqRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f5eee8' },
-  answerText: { marginTop: 6, lineHeight: 20 },
-  text: { color: '#5d4037', marginBottom: 8 },
-  primaryButton: { backgroundColor: '#5d4037', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 12 },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  answerText: { marginTop: 6, lineHeight: 20, color: '#8d6e63' },
+  text: { marginBottom: 8, color: '#5d4037' },
+  primaryButton: { backgroundColor: '#fff9f4', borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: '#e6d3b3' },
+  primaryButtonText: { color: '#5d4037', fontSize: 16, fontWeight: '600' },
 });

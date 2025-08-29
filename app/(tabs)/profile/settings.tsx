@@ -65,10 +65,6 @@ export default function SettingsScreen() {
   // Notifications
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  // Privacy & Security
-  const [appLock, setAppLock] = useState(false);
-  const [lockTimeout, setLockTimeout] = useState<'immediate' | '1m' | '5m'>('immediate');
-  const [showLockTimeoutModal, setShowLockTimeoutModal] = useState(false);
 
   const todaySample = useMemo(() => formatSample(new Date(), timeFormat), [timeFormat]);
 
@@ -111,23 +107,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Privacy & Security */}
-        <ThemedText style={styles.sectionHeading}>Privacy & Security</ThemedText>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>App Lock</Text>
-            <Switch value={appLock} onValueChange={setAppLock} />
-          </View>
-          <TouchableOpacity
-            style={[styles.row, { opacity: appLock ? 1 : 0.6 }]}
-            onPress={() => appLock && setShowLockTimeoutModal(true)}
-            activeOpacity={appLock ? 0.7 : 1}
-          >
-            <Text style={styles.rowText}>Lock timeout</Text>
-            <Text style={styles.valueText}>{({ immediate: 'Immediately', '1m': 'After 1 min', '5m': 'After 5 min' } as const)[lockTimeout]}</Text>
-          </TouchableOpacity>
-        </View>
-
+        
         {/* Data & Storage */}
         <ThemedText style={styles.sectionHeading}>Data & Storage</ThemedText>
         <View style={styles.card}>
@@ -214,30 +194,6 @@ export default function SettingsScreen() {
           </View>
         </Modal>
 
-        {/* Lock Timeout Modal */}
-        <Modal visible={showLockTimeoutModal} transparent animationType="fade" onRequestClose={() => setShowLockTimeoutModal(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Select lock timeout</Text>
-              <ScrollView>
-                {(['immediate','1m','5m'] as const).map(opt => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={styles.modalOptionRow}
-                    onPress={() => { setLockTimeout(opt); setShowLockTimeoutModal(false); }}
-                  >
-                    <Text style={styles.modalOptionText}>{({ immediate: 'Immediately', '1m': 'After 1 min', '5m': 'After 5 min' } as const)[opt]}</Text>
-                    {lockTimeout === opt && <Text style={styles.modalCheck}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity style={styles.modalClose} onPress={() => setShowLockTimeoutModal(false)}>
-                <Text style={styles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
         {/* Currency Modal */}
         <Modal visible={showCurrencyModal} transparent animationType="fade" onRequestClose={() => setShowCurrencyModal(false)}>
           <View style={styles.modalOverlay}>
@@ -272,6 +228,9 @@ const styles = StyleSheet.create({
   sectionHeading: { fontSize: 18, color: '#6d4c41', fontWeight: '600', marginBottom: 10, marginTop: 14 },
   card: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#eee0d8', overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#f0e6df' },
+  rowNoDivider: { borderBottomWidth: 0 },
+  hintRow: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0e6df' },
+  hintText: { fontSize: 12, color: '#9e9e9e' },
   rowText: { fontSize: 16, color: '#5d4037', fontWeight: '600', flex: 1, flexShrink: 1, paddingRight: 12 },
   valueText: { fontSize: 14, color: '#8d6e63' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', padding: 24 },

@@ -1,16 +1,16 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
-import 'react-native-reanimated';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, LogBox, Platform, SafeAreaView, ActivityIndicator } from 'react-native';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { User } from '../types';
-import getApiUrl from './utils/api';
-import { UserContext } from './UserContext';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from '@/components/MainTabs';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, LogBox, Platform, SafeAreaView, StyleSheet, View } from 'react-native';
+import 'react-native-reanimated';
+import { User } from '../types';
+import { UserContext } from './UserContext';
+import getApiUrl from './utils/api';
 
 // Import screens
 
@@ -79,11 +79,23 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, isReady]);
 
-  // Wrap setUser to add logging
+  // Wrap setUser to add logging and avoid redundant updates (keep stable identity)
   const setUserWithLogging = useCallback((userData: User | null) => {
-    console.log('User state changing from', user, 'to', userData);
-    setUser(userData);
-  }, [user]);
+    setUser((prev) => {
+      // If effectively the same user, skip state update to prevent rerender loops
+      try {
+        if (prev && userData && prev._id === (userData as any)._id) {
+          const prevStr = JSON.stringify(prev);
+          const nextStr = JSON.stringify(userData);
+          if (prevStr === nextStr) {
+            return prev;
+          }
+        }
+      } catch {}
+      console.log('User state changing from', prev, 'to', userData);
+      return userData;
+    });
+  }, []);
 
   // Ensure a demo user exists so the app works without login
   useEffect(() => {

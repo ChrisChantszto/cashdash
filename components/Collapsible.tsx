@@ -21,14 +21,14 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
           name="chevron.right"
           size={18}
           weight="medium"
-          color={theme === 'light' ? Colors.light.icon : Colors.dark.icon}
+          color={theme === 'light' ? '#5d4037' : Colors.dark.icon}
           style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
         />
 
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
+        <ThemedText type="defaultSemiBold" style={{ color: '#5d4037' }}>{title}</ThemedText>
       </TouchableOpacity>
       {isOpen && (
-        <ThemedView lightColor="#f5ede4" darkColor="#1b1d1e" style={styles.content}>
+        <ThemedView lightColor="transparent" darkColor="transparent" style={styles.content}>
           {children}
         </ThemedView>
       )}

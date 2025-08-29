@@ -128,8 +128,15 @@ export default function AddTransactionScreen(props: any) {
         setUser(u);
         return u;
       }
-      const errText = await createRes.text().catch(() => '');
-      console.warn('[AddTxn] ensureDemoUser POST failed body:', errText);
+      // If server returns 400 with an existing user object, use it
+      const text = await createRes.text().catch(() => '');
+      let data: any = {};
+      try { data = JSON.parse(text); } catch {}
+      if (createRes.status === 400 && data && data.user) {
+        setUser(data.user);
+        return data.user;
+      }
+      console.warn('[AddTxn] ensureDemoUser POST failed body:', text);
     } catch (e) {
       console.warn('Failed to ensure demo user', e);
     }

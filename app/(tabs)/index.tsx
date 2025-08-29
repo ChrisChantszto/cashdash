@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, StyleSheet, FlatList, SectionList, TouchableOpacity, TextInput, Alert, Platform, Modal } from 'react-native';
-import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useUser } from '../UserContext';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import getApiUrl from '../utils/api';
+import { ThemedView } from '@/components/ThemedView';
 import { MaterialIcons } from '@expo/vector-icons';
+import { CommonActions, useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Modal, Platform, SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { useUser } from '../UserContext';
+import getApiUrl from '../utils/api';
 
 const API_URL = getApiUrl();
 
@@ -21,11 +21,19 @@ interface Transaction {
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: any }> = {
+  // Expense categories
   food: { label: 'Food', icon: 'restaurant' },
   shopping: { label: 'Shopping', icon: 'shopping-bag' },
   transport: { label: 'Transport', icon: 'directions-car' },
   entertainment: { label: 'Entertainment', icon: 'movie' },
   bills: { label: 'Bills', icon: 'receipt' },
+  // Income categories
+  salary: { label: 'Salary', icon: 'work' },
+  freelance: { label: 'Freelance', icon: 'handyman' },
+  bonus: { label: 'Bonus', icon: 'request-quote' },
+  interest: { label: 'Interest', icon: 'savings' },
+  gift: { label: 'Gift', icon: 'card-giftcard' },
+  // Fallback
   other: { label: 'Other', icon: 'more-horiz' },
 };
 
@@ -43,6 +51,7 @@ LocaleConfig.defaultLocale = 'en';
 
 export default function CalendarScreen() {
   const { user } = useUser();
+  const navigation = useNavigation<any>();
   // Local YYYY-MM-DD for today (avoid UTC off-by-one)
   const makeLocalYMD = (d: Date) => {
     const y = d.getFullYear();
@@ -156,16 +165,38 @@ export default function CalendarScreen() {
   const currentYear = currentMonth.getFullYear();
   const years = Array.from({ length: 31 }, (_, i) => currentYear - 20 + i);
 
-  const handleDayPress = (d: { dateString: string; year: number; month: number; day: number }) => {
+  const handleDayPress = (d: { dateString?: string; year: number; month: number; day: number }) => {
     lastActionRef.current = 'day';
-    setSelected(d.dateString);
+    const ymd = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
+    console.log('[Calendar] dayPress ->', ymd, 'prev currentMonth=', `${currentMonth.getFullYear()}-${pad2(currentMonth.getMonth()+1)}-01`);
+    setSelected(d.dateString || ymd);
     const nm = new Date(d.year, d.month - 1, 1);
-    if (nm.getFullYear() !== currentMonth.getFullYear() || nm.getMonth() !== currentMonth.getMonth()) {
-      dayTapTargetMonthRef.current = { y: d.year, m: d.month };
-      setCurrentMonth(nm);
-    }
-    // Keep lastActionRef as 'day' until visible month reflects the tap
+    // Always sync visible month to tapped day to avoid snap-back when Calendar re-renders
+    dayTapTargetMonthRef.current = { y: d.year, m: d.month };
+    //setCurrentMonth(nm);
+    console.log('[Calendar] dayPress -> new currentMonth=', `${nm.getFullYear()}-${pad2(nm.getMonth()+1)}-01`);
+    // Clear guards so subsequent legitimate swipes are handled normally
+    dayTapTargetMonthRef.current = null;
+    lastActionRef.current = 'none';
   };
+
+  const openAddForSelected = useCallback((tab: 'expense' | 'income' = 'expense', dateOverride?: string) => {
+    // Navigate to Add tab -> AddSwitcher with prefilled selectedDate (robust across nested navigators)
+    const date = dateOverride ?? selected;
+    const action = CommonActions.navigate({
+      name: 'Add',
+      params: {
+        screen: 'AddSwitcher',
+        params: { selectedDate: date, activeTab: tab },
+      },
+    });
+    try {
+      navigation.dispatch(action);
+    } catch {
+      // Fallback: simple tab switch with params
+      navigation.navigate('Add' as never, { params: { selectedDate: date, activeTab: tab } } as never);
+    }
+  }, [navigation, selected]);
 
   const params = useLocalSearchParams<{ selectedDate?: string }>();
   const router = useRouter();
@@ -197,33 +228,10 @@ export default function CalendarScreen() {
       <View style={styles.headerDivider} />
 
       <Calendar
-        onDayPress={handleDayPress}
         hideArrows
         hideDayNames
         renderHeader={() => null}
         enableSwipeMonths
-        onVisibleMonthsChange={(months) => {
-          if (months && months.length) {
-            const last = months[months.length - 1];
-            const nm = new Date(last.year, last.month - 1, 1);
-            setCurrentMonth(nm);
-            // If this visible change was triggered by tapping an out-of-month day,
-            // do NOT override the explicitly chosen selected date.
-            if (
-              lastActionRef.current === 'day' &&
-              dayTapTargetMonthRef.current &&
-              dayTapTargetMonthRef.current.y === last.year &&
-              dayTapTargetMonthRef.current.m === last.month
-            ) {
-              // Clear flags and exit
-              dayTapTargetMonthRef.current = null;
-              lastActionRef.current = 'none';
-              return;
-            }
-            // Swipe or nav or unrelated change: keep same day-of-month
-            syncSelectedToMonth(nm);
-          }
-        }}
         firstDay={0}
         theme={{
           backgroundColor: '#f8f4e9',
@@ -244,7 +252,28 @@ export default function CalendarScreen() {
         }}
         style={styles.calendar}
         current={`${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`}
-        onMonthChange={(m) => setCurrentMonth(new Date(m.year, m.month - 1, 1))}
+        onMonthChange={(m) => {
+          const nextStr = `${m.year}-${pad2(m.month)}-01`;
+          console.log('[Calendar] onMonthChange ->', nextStr, 'lastAction=', lastActionRef.current, 'tapTarget=', dayTapTargetMonthRef.current);
+          const nm = new Date(m.year, m.month - 1, 1);
+          if (lastActionRef.current === 'day') {
+            const target = dayTapTargetMonthRef.current;
+            if (target && target.y === m.year && target.m === m.month) {
+              // Calendar has navigated to the tapped month; finalize and clear guards
+              dayTapTargetMonthRef.current = null;
+              lastActionRef.current = 'none';
+              return;
+            }
+            // Ignore any other month changes triggered during the tap transition
+            return;
+          }
+          if (
+            nm.getFullYear() !== currentMonth.getFullYear() ||
+            nm.getMonth() !== currentMonth.getMonth()
+          ) {
+            setCurrentMonth(nm);
+          }
+        }}
         dayComponent={({ date, state }) => {
           const isSelected = selected === date?.dateString;
           return (
@@ -293,8 +322,8 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       </Modal>
       {/* Subtitle row with grouping toggle */}
-      <View style={[styles.expensesHeaderRow, { marginTop: 24 }]}>
-        <ThemedText type="subtitle" style={[styles.expensesSubtitle]}>Expenses for {selected || '...'}</ThemedText>
+      <View style={[styles.expensesHeaderRow, { marginTop: 24 }]}> 
+        <ThemedText type="subtitle" style={[styles.expensesSubtitle]}>Expenses for {selected}</ThemedText> 
         <TouchableOpacity
           onPress={() => setGroupMode((m) => (m === 'recent' ? 'category' : 'recent'))}
           style={styles.modeToggle}

@@ -19,6 +19,7 @@ const MENU_OPTIONS: MenuOption[] = [
   { key: 'connect-banks', label: 'Connect to Banks', icon: 'bank', screen: 'ConnectBanks' },
   { key: 'help-support', label: 'Help and Support', icon: 'question-circle', screen: 'HelpSupport' },
   { key: 'settings', label: 'Settings', icon: 'cog', screen: 'Settings' },
+  { key: 'privacy-security', label: 'Privacy & Security', icon: 'lock', screen: 'PrivacySecurity' },
   { key: 'notifications', label: 'Notifications', icon: 'bell', screen: 'Notifications' },
   { key: 'language', label: 'Language', icon: 'globe', screen: 'Language' },
   { key: 'about', label: 'About', icon: 'info-circle', screen: 'About' },

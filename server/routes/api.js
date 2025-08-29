@@ -9,6 +9,10 @@ const HSBC_BASE_URL = process.env.HSBC_BASE_URL || 'https://developer.hsbc.com.h
 const HSBC_CLIENT_ID = process.env.HSBC_CLIENT_ID;
 const HSBC_CLIENT_SECRET = process.env.HSBC_CLIENT_SECRET;
 
+// External API config (Exchange Rates API)
+const FX_BASE_URL = process.env.EXCHANGE_RATES_API_BASE || 'http://api.exchangeratesapi.io/v1';
+const FX_API_KEY = process.env.EXCHANGE_RATES_API_KEY; // set in server/.env
+
 // Users
 router.get('/users', async (req, res) => {
   try {
@@ -17,6 +21,92 @@ router.get('/users', async (req, res) => {
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ error: 'Failed to fetch users', message: err.message });
+  }
+});
+
+// Currency conversion via exchangeratesapi.io
+// GET /api/currency/convert?from=USD&to=HKD&amount=123.45&date=YYYY-MM-DD(optional)
+router.get('/currency/convert', async (req, res) => {
+  try {
+    if (!FX_API_KEY) {
+      return res.status(500).json({
+        error: 'Exchange Rates API key is not configured on the server',
+        hint: 'Set EXCHANGE_RATES_API_KEY in server/.env',
+      });
+    }
+
+    const from = (req.query.from || '').toString().toUpperCase();
+    const to = (req.query.to || '').toString().toUpperCase();
+    const amountRaw = (req.query.amount || '').toString();
+    const date = (req.query.date || '').toString();
+
+    if (!from || !to || !amountRaw) {
+      return res.status(400).json({ error: 'Missing required query params: from, to, amount' });
+    }
+    const amount = Number(amountRaw);
+    if (!Number.isFinite(amount)) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const endpoint = date ? `${FX_BASE_URL}/${date}` : `${FX_BASE_URL}/latest`;
+    // Free plan typically returns EUR as base, so we request the minimal symbols we need
+    const url = `${endpoint}?access_key=${encodeURIComponent(FX_API_KEY)}&symbols=${encodeURIComponent([from, to, 'EUR'].join(','))}`;
+
+    // Prefer global fetch (Node >= 18). If unavailable, try lazy import of node-fetch.
+    let doFetch = (typeof fetch !== 'undefined') ? fetch : null;
+    if (!doFetch) {
+      try {
+        // eslint-disable-next-line global-require
+        doFetch = (await import('node-fetch')).default;
+      } catch (e) {
+        return res.status(500).json({
+          error: 'Fetch is not available on the server and node-fetch is not installed',
+          hint: 'Install node-fetch: cd server && npm i node-fetch@3',
+          details: String(e),
+        });
+      }
+    }
+
+    const response = await doFetch(url);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success === false) {
+      return res.status(response.status || 502).json({
+        error: 'Failed to fetch exchange rates',
+        details: data.error || data,
+      });
+    }
+
+    const rates = data.rates || {};
+    const rFrom = from === 'EUR' ? 1 : rates[from];
+    const rTo = to === 'EUR' ? 1 : rates[to];
+    if (!rFrom || !rTo) {
+      return res.status(400).json({
+        error: 'Missing currency in rate response',
+        available: Object.keys(rates).sort(),
+      });
+    }
+
+    // Convert: amount_in_to = amount * (rate_to / rate_from)
+    const rate = rTo / rFrom;
+    const result = amount * rate;
+
+    return res.json({
+      success: true,
+      query: { from, to, amount },
+      date: data.date || date || null,
+      base: data.base || 'EUR',
+      rate,
+      result,
+      meta: {
+        rFrom,
+        rTo,
+        source: endpoint,
+      },
+    });
+  } catch (err) {
+    console.error('Currency convert error:', err);
+    return res.status(500).json({ error: 'Currency conversion failed', details: err.message });
   }
 });
 
