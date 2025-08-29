@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, Switch } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { useUser } from '../UserContext';
-import { Alert } from 'react-native';
-import getApiUrl from '../utils/api';
+import { ThemedView } from '@/components/ThemedView';
+import { getCurrencyLabel, getFullCurrencyList } from '@/constants/currencies';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { getFullCurrencyList } from '@/constants/currencies';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useUser } from '../UserContext';
+import getApiUrl from '../utils/api';
 
 const API_URL = getApiUrl();
 // Debug: log resolved API base in dev
@@ -379,7 +378,7 @@ export default function AddTransactionScreen(props: any) {
                     styles.currencyButtonText,
                     c !== 'Other' && currency === c && styles.currencyButtonTextSelected,
                   ]}>
-                    {c}
+                    {c === 'Other' ? 'Other' : getCurrencyLabel(c)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -521,7 +520,7 @@ export default function AddTransactionScreen(props: any) {
                   }}
                 >
                   <Text style={styles.currencyListItemText}>
-                    {c}
+                    {getCurrencyLabel(c)}
                   </Text>
                 </TouchableOpacity>
               ))}

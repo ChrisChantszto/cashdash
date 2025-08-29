@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { getFullCurrencyList } from '@/constants/currencies';
+import { getCurrencyLabel, getFullCurrencyList } from '@/constants/currencies';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -358,7 +358,7 @@ export default function AddIncomeScreen(props: any) {
                     styles.currencyButtonText,
                     c !== 'Other' && currency === c && styles.currencyButtonTextSelected,
                   ]}>
-                    {c}
+                    {c === 'Other' ? 'Other' : getCurrencyLabel(c)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -481,7 +481,7 @@ export default function AddIncomeScreen(props: any) {
                   }}
                 >
                   <Text style={styles.currencyListItemText}>
-                    {c}
+                    {getCurrencyLabel(c)}
                   </Text>
                 </TouchableOpacity>
               ))}

@@ -18,6 +18,7 @@ interface Transaction {
   date: string;
   category: string;
   description?: string;
+  currency?: string;
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: any }> = {
@@ -362,7 +363,7 @@ export default function CalendarScreen() {
                       <Text style={styles.noteText} numberOfLines={1}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.amountText}>${formatAmount(item.amount)}</Text>
+                  <Text style={styles.amountText}>${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
                 </View>
               </View>
             );
@@ -388,7 +389,7 @@ export default function CalendarScreen() {
                       <Text style={styles.noteText} numberOfLines={1}>{item.description}</Text>
                     ) : null}
                   </View>
-                  <Text style={styles.amountText}>${formatAmount(item.amount)}</Text>
+                  <Text style={styles.amountText}>${formatAmount(item.amount)}{item.currency ? ` ${item.currency}` : ''}</Text>
                 </View>
               </View>
             );
