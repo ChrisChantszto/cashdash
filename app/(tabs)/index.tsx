@@ -175,18 +175,11 @@ export default function CalendarScreen() {
   const years = Array.from({ length: 31 }, (_, i) => currentYear - 20 + i);
 
   const handleDayPress = (d: { dateString?: string; year: number; month: number; day: number }) => {
-    lastActionRef.current = 'day';
     const ymd = `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
-    console.log('[Calendar] dayPress ->', ymd, 'prev currentMonth=', `${currentMonth.getFullYear()}-${pad2(currentMonth.getMonth()+1)}-01`);
     setSelected(d.dateString || ymd);
+    // Update currentMonth to match the selected day's month
     const nm = new Date(d.year, d.month - 1, 1);
-    // Always sync visible month to tapped day to avoid snap-back when Calendar re-renders
-    dayTapTargetMonthRef.current = { y: d.year, m: d.month };
-    //setCurrentMonth(nm);
-    console.log('[Calendar] dayPress -> new currentMonth=', `${nm.getFullYear()}-${pad2(nm.getMonth()+1)}-01`);
-    // Clear guards so subsequent legitimate swipes are handled normally
-    dayTapTargetMonthRef.current = null;
-    lastActionRef.current = 'none';
+    setCurrentMonth(nm);
   };
 
   const openAddForSelected = useCallback((tab: 'expense' | 'income' = 'expense', dateOverride?: string) => {
@@ -242,6 +235,12 @@ export default function CalendarScreen() {
         renderHeader={() => null}
         enableSwipeMonths
         firstDay={0}
+        initialDate={selected}
+        current={`${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`}
+        markedDates={{
+          [selected]: { selected: true, selectedColor: '#8d6e63' }
+        }}
+        onDayPress={handleDayPress}
         theme={{
           backgroundColor: '#f8f4e9',
           calendarBackground: '#f8f4e9',
@@ -258,48 +257,20 @@ export default function CalendarScreen() {
           todayTextColor: '#5d4037',
           textDisabledColor: '#d7ccc8',
           textDayStyle: { marginTop: 6, marginBottom: 6 },
+          selectedDayBackgroundColor: '#8d6e63',
+          selectedDayTextColor: '#f8f4e9',
         }}
         style={styles.calendar}
-        current={`${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`}
         onMonthChange={(m) => {
-          const nextStr = `${m.year}-${pad2(m.month)}-01`;
-          console.log('[Calendar] onMonthChange ->', nextStr, 'lastAction=', lastActionRef.current, 'tapTarget=', dayTapTargetMonthRef.current);
           const nm = new Date(m.year, m.month - 1, 1);
-          if (lastActionRef.current === 'day') {
-            const target = dayTapTargetMonthRef.current;
-            if (target && target.y === m.year && target.m === m.month) {
-              // Calendar has navigated to the tapped month; finalize and clear guards
-              dayTapTargetMonthRef.current = null;
-              lastActionRef.current = 'none';
-              return;
-            }
-            // Ignore any other month changes triggered during the tap transition
-            return;
-          }
+          
+          // Only update currentMonth if it's different
           if (
             nm.getFullYear() !== currentMonth.getFullYear() ||
             nm.getMonth() !== currentMonth.getMonth()
           ) {
             setCurrentMonth(nm);
           }
-        }}
-        dayComponent={({ date, state }) => {
-          const isSelected = selected === date?.dateString;
-          return (
-            <TouchableOpacity onPress={() => handleDayPress(date!)} activeOpacity={0.8}>
-              <View style={[styles.dayWrapper, isSelected && styles.daySelected]}> 
-                <Text
-                  style={[
-                    styles.dayLabel,
-                    state === 'disabled' && styles.disabledDayText,
-                    isSelected && styles.dayLabelSelected,
-                  ]}
-                >
-                  {date?.day}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
         }}
       />
 
