@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert, FlatList } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, ActivityIndicator, NativeModules, Platform, ScrollView, Linking, Alert, FlatList, Modal } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useUser } from '../../UserContext';
@@ -35,6 +36,8 @@ export default function AccountScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hsbcData, setHsbcData] = useState<any>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showImageOptions, setShowImageOptions] = useState(false);
 
   const toggle = (id: string) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -129,9 +132,62 @@ export default function AccountScreen() {
       setLoading(false);
     }
   };
+  // Request permissions for camera and media library
+  useEffect(() => {
+    (async () => {
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
+        Alert.alert('Permission required', 'Please grant camera and photo library permissions to upload profile images.');
+      }
+    })();
+  }, []);
+
+  // Handle taking a photo with the camera
+  const takePhoto = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setProfileImage(result.assets[0].uri);
+        setShowImageOptions(false);
+        // Here you would typically upload the image to your server
+        // and update the user profile
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  // Handle picking an image from the gallery
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setProfileImage(result.assets[0].uri);
+        setShowImageOptions(false);
+        // Here you would typically upload the image to your server
+        // and update the user profile
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
   // Placeholder user info; replace with actual user info as available
   const info = {
-    icon: 'https://ui-avatars.com/api/?name=' + (user?.name || 'User'),
+    icon: profileImage || (user?.profileImage || 'https://ui-avatars.com/api/?name=' + (user?.name || 'User')),
     username: user?.name || 'Username',
     email: user?.email || 'Email',
     birthdate: '1990-01-01',
@@ -151,7 +207,12 @@ export default function AccountScreen() {
           <ImageBackground source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover">
             <View style={styles.heroOverlay} />
             <View style={styles.heroContent}>
-              <Image source={{ uri: info.icon }} style={styles.avatarLarge} />
+              <TouchableOpacity onPress={() => setShowImageOptions(true)}>
+                <Image source={{ uri: info.icon }} style={styles.avatarLarge} />
+                <View style={styles.editIconContainer}>
+                  <FontAwesome name="camera" size={16} color="#fff" />
+                </View>
+              </TouchableOpacity>
               <ThemedText type="title" style={styles.nameText}>{info.username}</ThemedText>
               <Text style={styles.taglineText}>Work hard in silence. Let your success be the noise.</Text>
             </View>
@@ -205,6 +266,41 @@ export default function AccountScreen() {
           <Text style={styles.logoutButtonText}>Log out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Image Options Modal */}
+      <Modal
+        visible={showImageOptions}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowImageOptions(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowImageOptions(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.modalOption} onPress={takePhoto}>
+              <FontAwesome name="camera" size={24} color="#5d4037" style={styles.modalIcon} />
+              <Text style={styles.modalOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.modalDivider} />
+            
+            <TouchableOpacity style={styles.modalOption} onPress={pickImage}>
+              <FontAwesome name="image" size={24} color="#5d4037" style={styles.modalIcon} />
+              <Text style={styles.modalOptionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.modalDivider} />
+            
+            <TouchableOpacity style={styles.modalOption} onPress={() => setShowImageOptions(false)}>
+              <FontAwesome name="times" size={24} color="#b71c1c" style={styles.modalIcon} />
+              <Text style={[styles.modalOptionText, { color: '#b71c1c' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ThemedView>
   );
 }
@@ -505,5 +601,47 @@ const styles = StyleSheet.create({
   cardName: {
     color: '#6d4c41',
     fontSize: 14,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: 5,
+    right: 0,
+    backgroundColor: '#8d6e63',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+  },
+  modalIcon: {
+    width: 40,
+    textAlign: 'center',
+    marginRight: 15,
+  },
+  modalOptionText: {
+    fontSize: 18,
+    color: '#5d4037',
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#f0e6df',
   },
 });

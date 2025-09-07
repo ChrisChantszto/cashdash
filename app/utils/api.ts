@@ -19,16 +19,19 @@ export const getApiUrl = (): string => {
     if (scriptURL) {
       const { hostname } = new URL(scriptURL);
       if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+        // Use the device's IP address for the server connection
+        console.log(`[API] Using device IP: ${hostname} for server connection`);
         return `http://${hostname}:5001/api`;
       }
     }
-  } catch {
+  } catch (error) {
+    console.error('[API] Error inferring host:', error);
     // ignore and fall back
   }
 
   // Simulator / web fallbacks
   const base = Platform.select({
-    ios: 'http://localhost:5001',
+    ios: 'http://192.168.0.249:5001', // Use your computer's IP address
     android: 'http://10.0.2.2:5001',
     default: 'http://localhost:5001',
   });

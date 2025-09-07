@@ -20,12 +20,19 @@ const port = process.env.PORT || 5001;
 app.use(express.json());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cashdash';
+console.log('Connecting to MongoDB at:', MONGODB_URI);
+
+mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
   .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    console.log('Make sure MongoDB is running on your local machine');
+    console.log('To start MongoDB: brew services start mongodb/brew/mongodb-community');
+  });
 
 // Basic route
 app.get('/', (req, res) => {
