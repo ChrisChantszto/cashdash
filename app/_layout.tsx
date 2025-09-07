@@ -13,6 +13,8 @@ import { UserContext } from './UserContext';
 import getApiUrl from './utils/api';
 import LoginScreen from './LoginScreen';
 import SignInScreen from './SignInScreen';
+import { AppLockProvider, useAppLock } from './contexts/AppLockContext';
+import { PINUnlockScreen } from './components/PINUnlockScreen';
 
 // Import screens
 
@@ -127,38 +129,61 @@ export default function RootLayout() {
   
   return (
     <RootView style={styles.container} onLayout={onLayoutRootView} testID="root-view">
-      <UserContext.Provider value={contextValue}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <React.Suspense fallback={
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-              </View>
-            }>
-              <Stack.Navigator
-                key={'app'}
-                screenOptions={{
-                  headerShown: false,
-                  animation: 'fade',
-                }}
-              >
-                {user ? (
-                  <Stack.Screen name="MainTabs" component={MainTabs} />
-                ) : (
-                  <>
-                    <Stack.Screen name="Login">
-                      {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
-                    </Stack.Screen>
-                    <Stack.Screen name="SignIn">
-                      {(props) => <SignInScreen {...props} onLogin={handleLogin} />}
-                    </Stack.Screen>
-                  </>
-                )}
-              </Stack.Navigator>
-            </React.Suspense>
+      <AppLockProvider>
+        <UserContext.Provider value={contextValue}>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <AppContent user={user} handleLogin={handleLogin} />
             <StatusBar style="auto" />
-        </ThemeProvider>
-      </UserContext.Provider>
+          </ThemeProvider>
+        </UserContext.Provider>
+      </AppLockProvider>
     </RootView>
+  );
+}
+
+const AppContent: React.FC<{ user: User | null; handleLogin: (user: User) => void }> = ({ user, handleLogin }) => {
+  const { isLocked, verifyPIN, unlockApp } = useAppLock();
+  const Stack = createNativeStackNavigator();
+
+  const handlePINUnlock = async (pin: string) => {
+    const isValid = await verifyPIN(pin);
+    if (isValid) {
+      unlockApp();
+    }
+    return isValid;
+  };
+
+  if (isLocked && user) {
+    return <PINUnlockScreen onUnlock={handlePINUnlock} />;
+  }
+
+  return (
+    <React.Suspense fallback={
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    }>
+      <Stack.Navigator
+        key={'app'}
+        screenOptions={{
+          headerShown: false,
+          animation: 'fade',
+        }}
+      >
+        {user ? (
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+        ) : (
+          <>
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+            </Stack.Screen>
+            <Stack.Screen name="SignIn">
+              {(props) => <SignInScreen {...props} onLogin={handleLogin} />}
+            </Stack.Screen>
+          </>
+        )}
+      </Stack.Navigator>
+    </React.Suspense>
   );
 }
 

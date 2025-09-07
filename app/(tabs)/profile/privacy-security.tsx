@@ -1,12 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { useAppLock } from '../../contexts/AppLockContext';
+import { PINSetupModal } from '../../components/PINSetupModal';
+
+type LockTimeout = 'immediate' | '1m' | '5m' | '15m' | '30m' | '1h';
+
+const TIMEOUT_OPTIONS: Record<LockTimeout, string> = {
+  immediate: 'Immediately',
+  '1m': 'After 1 minute',
+  '5m': 'After 5 minutes',
+  '15m': 'After 15 minutes',
+  '30m': 'After 30 minutes',
+  '1h': 'After 1 hour'
+};
 
 export default function PrivacySecurityScreen() {
-  const [appLock, setAppLock] = useState(false);
-  const [lockTimeout, setLockTimeout] = useState<'immediate' | '1m' | '5m'>('immediate');
+  const { isAppLockEnabled, lockTimeout, setAppLockEnabled, setLockTimeout, setupPIN, hasPIN } = useAppLock();
   const [showLockTimeoutModal, setShowLockTimeoutModal] = useState(false);
+  const [showPINSetup, setShowPINSetup] = useState(false);
+
+  const handleAppLockToggle = async (enabled: boolean) => {
+    if (enabled && !hasPIN) {
+      setShowPINSetup(true);
+    } else if (!enabled) {
+      Alert.alert(
+        'Disable App Lock',
+        'Are you sure you want to disable app lock?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Disable', 
+            style: 'destructive',
+            onPress: () => setAppLockEnabled(false)
+          }
+        ]
+      );
+    } else {
+      await setAppLockEnabled(enabled);
+    }
+  };
+
+  const handlePINSetup = async (pin: string) => {
+    try {
+      await setupPIN(pin);
+      await setAppLockEnabled(true);
+      Alert.alert('Success', 'App lock has been enabled with your PIN.');
+    } catch (error) {
+      throw error;
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -16,18 +60,18 @@ export default function PrivacySecurityScreen() {
         <View style={styles.card}>
           <View style={[styles.row, styles.rowNoDivider]}>
             <Text style={styles.rowText}>App Lock</Text>
-            <Switch value={appLock} onValueChange={setAppLock} />
+            <Switch value={isAppLockEnabled} onValueChange={handleAppLockToggle} />
           </View>
           <View style={styles.hintRow}>
-            <Text style={styles.hintText}>Require passcode to unlock cashly</Text>
+            <Text style={styles.hintText}>Require PIN code to unlock Cashly</Text>
           </View>
           <TouchableOpacity
-            style={[styles.row, { opacity: appLock ? 1 : 0.6 }]}
-            onPress={() => appLock && setShowLockTimeoutModal(true)}
-            activeOpacity={appLock ? 0.7 : 1}
+            style={[styles.row, { opacity: isAppLockEnabled ? 1 : 0.6 }]}
+            onPress={() => isAppLockEnabled && setShowLockTimeoutModal(true)}
+            activeOpacity={isAppLockEnabled ? 0.7 : 1}
           >
             <Text style={styles.rowText}>Lock timeout</Text>
-            <Text style={styles.valueText}>{({ immediate: 'Immediately', '1m': 'After 1 min', '5m': 'After 5 min' } as const)[lockTimeout]}</Text>
+            <Text style={styles.valueText}>{TIMEOUT_OPTIONS[lockTimeout]}</Text>
           </TouchableOpacity>
         </View>
 
@@ -36,13 +80,13 @@ export default function PrivacySecurityScreen() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Select lock timeout</Text>
               <ScrollView>
-                {(['immediate','1m','5m'] as const).map(opt => (
+                {(Object.keys(TIMEOUT_OPTIONS) as LockTimeout[]).map(opt => (
                   <TouchableOpacity
                     key={opt}
                     style={styles.modalOptionRow}
                     onPress={() => { setLockTimeout(opt); setShowLockTimeoutModal(false); }}
                   >
-                    <Text style={styles.modalOptionText}>{({ immediate: 'Immediately', '1m': 'After 1 min', '5m': 'After 5 min' } as const)[opt]}</Text>
+                    <Text style={styles.modalOptionText}>{TIMEOUT_OPTIONS[opt]}</Text>
                     {lockTimeout === opt && <Text style={styles.modalCheck}>✓</Text>}
                   </TouchableOpacity>
                 ))}
@@ -53,6 +97,12 @@ export default function PrivacySecurityScreen() {
             </View>
           </View>
         </Modal>
+
+        <PINSetupModal
+          visible={showPINSetup}
+          onClose={() => setShowPINSetup(false)}
+          onPINSet={handlePINSetup}
+        />
       </ScrollView>
     </ThemedView>
   );
