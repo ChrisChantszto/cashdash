@@ -42,7 +42,17 @@ export default function SignInScreen({ onLogin }: SignInScreenProps) {
           email: emailFromGoogle 
         }),
       });
-      if (!createResp.ok) throw new Error(`HTTP error! status: ${createResp.status}`);
+      
+      if (!createResp.ok) {
+        const errorData = await createResp.json().catch(() => ({}));
+        if (createResp.status === 400 && errorData.user) {
+          // User already exists, log them in
+          onLogin(errorData.user);
+          return;
+        }
+        throw new Error(errorData.error || `HTTP error! status: ${createResp.status}`);
+      }
+      
       const created = await createResp.json();
       if (created?._id) {
         onLogin(created);

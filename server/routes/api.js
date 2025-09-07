@@ -170,6 +170,35 @@ router.post('/users', async (req, res) => {
   }
 });
 
+// Update user profile
+router.put('/users/:id', async (req, res) => {
+  try {
+    console.log('Updating user:', req.params.id, 'with data:', req.body);
+    
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { 
+        ...req.body,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('User updated successfully:', { id: user._id, email: user.email });
+    res.json(user);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(400).json({ 
+      error: 'Failed to update user',
+      message: err.message 
+    });
+  }
+});
+
 // ============================================================================
 // EXTERNAL API ROUTES (HSBC)
 // ============================================================================

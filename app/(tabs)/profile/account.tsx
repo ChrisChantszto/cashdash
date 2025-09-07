@@ -154,36 +154,84 @@ export default function AccountScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setProfileImage(result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        setProfileImage(imageUri);
         setShowImageOptions(false);
-        // Here you would typically upload the image to your server
-        // and update the user profile
+        
+        // Save to database if user is logged in
+        if (user?._id) {
+          await updateUserProfileImage(imageUri);
+        }
       }
     } catch (error) {
+      console.error('Error taking photo:', error);
       Alert.alert('Error', 'Failed to take photo');
     }
   };
 
-  // Handle picking an image from the gallery
-  const pickImage = async () => {
+  // Handle selecting from photo library
+  const selectFromLibrary = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setProfileImage(result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        setProfileImage(imageUri);
         setShowImageOptions(false);
-        // Here you would typically upload the image to your server
-        // and update the user profile
+        
+        // Save to database if user is logged in
+        if (user?._id) {
+          await updateUserProfileImage(imageUri);
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      console.error('Error selecting from library:', error);
+      Alert.alert('Error', 'Failed to select image');
     }
   };
+
+  const updateUserProfileImage = async (imageUri: string) => {
+    try {
+      console.log('Updating profile image for user:', user?._id, 'with image:', imageUri);
+      
+      const response = await fetch(`${API_URL}/users/${user?._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          profileImage: imageUri,
+        }),
+      });
+
+      console.log('Profile image update response status:', response.status);
+      
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+        console.log('Profile image updated successfully:', updatedUser);
+      } else {
+        const errorText = await response.text();
+        console.error('Profile image update failed:', response.status, errorText);
+        throw new Error(`Failed to update profile image: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error updating profile image:', error);
+      Alert.alert('Error', 'Failed to save profile image. Please try again.');
+    }
+  };
+
+  // Initialize profile image from user data
+  useEffect(() => {
+    if (user?.profileImage) {
+      setProfileImage(user.profileImage);
+    }
+  }, [user]);
 
   // Placeholder user info; replace with actual user info as available
   const info = {
@@ -287,7 +335,7 @@ export default function AccountScreen() {
             
             <View style={styles.modalDivider} />
             
-            <TouchableOpacity style={styles.modalOption} onPress={pickImage}>
+            <TouchableOpacity style={styles.modalOption} onPress={selectFromLibrary}>
               <FontAwesome name="image" size={24} color="#5d4037" style={styles.modalIcon} />
               <Text style={styles.modalOptionText}>Choose from Gallery</Text>
             </TouchableOpacity>

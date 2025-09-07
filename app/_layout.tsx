@@ -11,6 +11,8 @@ import 'react-native-reanimated';
 import { User } from '../types';
 import { UserContext } from './UserContext';
 import getApiUrl from './utils/api';
+import LoginScreen from './LoginScreen';
+import SignInScreen from './SignInScreen';
 
 // Import screens
 
@@ -97,42 +99,11 @@ export default function RootLayout() {
     });
   }, []);
 
-  // Ensure a demo user exists so the app works without login
-  useEffect(() => {
-    if (!isReady) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const email = 'demo@cashdash.app';
-        // Try find existing user by email
-        const res = await fetch(`${API_URL}/users/email/${encodeURIComponent(email)}`);
-        if (cancelled) return;
-        if (res.ok) {
-          const u = await res.json();
-          if (!cancelled) setUserWithLogging(u);
-          return;
-        }
-        // Create user if missing (expect 404 from GET)
-        const createRes = await fetch(`${API_URL}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({ name: 'Demo User', email }),
-        });
-        if (cancelled) return;
-        if (createRes.ok) {
-          const u = await createRes.json();
-          if (!cancelled) setUserWithLogging(u);
-        } else {
-          console.warn('Failed to create demo user', await createRes.text());
-        }
-      } catch (e) {
-        console.warn('Could not bootstrap demo user. Is the server running on 5001?', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [API_URL, isReady, setUserWithLogging]);
-
-  // Login is disabled; app opens directly to MainTabs
+  // Handle user login
+  const handleLogin = useCallback((userData: User) => {
+    console.log('User logged in:', userData);
+    setUserWithLogging(userData);
+  }, [setUserWithLogging]);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
@@ -170,7 +141,18 @@ export default function RootLayout() {
                   animation: 'fade',
                 }}
               >
-                <Stack.Screen name="MainTabs" component={MainTabs} />
+                {user ? (
+                  <Stack.Screen name="MainTabs" component={MainTabs} />
+                ) : (
+                  <>
+                    <Stack.Screen name="Login">
+                      {(props) => <LoginScreen {...props} onLogin={handleLogin} />}
+                    </Stack.Screen>
+                    <Stack.Screen name="SignIn">
+                      {(props) => <SignInScreen {...props} onLogin={handleLogin} />}
+                    </Stack.Screen>
+                  </>
+                )}
               </Stack.Navigator>
             </React.Suspense>
             <StatusBar style="auto" />

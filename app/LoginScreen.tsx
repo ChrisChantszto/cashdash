@@ -50,7 +50,15 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 400 && errorData.error && errorData.error.includes('already exists')) {
+          Alert.alert(
+            'Email Already Registered',
+            'This email is already registered. Please use a different email or sign in instead.'
+          );
+          return;
+        }
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
@@ -63,10 +71,12 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
       }
     } catch (error: any) {
       console.error('Sign up error:', error);
-      Alert.alert(
-        'Sign up failed',
-        error.message || 'An error occurred while creating your account. Please try again.'
-      );
+      if (!error.message?.includes('Email Already Registered')) {
+        Alert.alert(
+          'Sign up failed',
+          error.message || 'An error occurred while creating your account. Please try again.'
+        );
+      }
     } finally {
       setLoading(false);
     }
