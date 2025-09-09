@@ -4,13 +4,11 @@ import {
   signInWithPopup, 
   GoogleAuthProvider, 
   signInWithCredential,
-  Auth,
   UserCredential,
-  AuthProvider,
-  AuthError,
   User,
-  OAuthProvider
+  initializeAuth
 } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -33,7 +31,17 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// Initialize Auth based on platform
+// For web, use standard getAuth
+// For native, we'll use AsyncStorage but without the persistence option for now
+// since the proper import isn't available in the current Firebase version
+export const auth = Platform.OS === 'web' 
+  ? getAuth(app)
+  : getAuth(app); // Using standard auth for now
+
+// Note: To properly implement persistence, we would need to update Firebase
+// and use: initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
 
 // Configure Google Auth Provider
 const googleProvider = new GoogleAuthProvider();

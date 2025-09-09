@@ -8,7 +8,7 @@ interface PINSetupModalProps {
   onPINSet: (pin: string) => Promise<void>;
 }
 
-export const PINSetupModal: React.FC<PINSetupModalProps> = ({ visible, onClose, onPINSet }) => {
+const PINSetupModal: React.FC<PINSetupModalProps> = ({ visible, onClose, onPINSet }) => {
   const [pin, setPIN] = useState('');
   const [confirmPIN, setConfirmPIN] = useState('');
   const [step, setStep] = useState<'setup' | 'confirm'>('setup');
@@ -161,6 +161,11 @@ export const PINSetupModal: React.FC<PINSetupModalProps> = ({ visible, onClose, 
     </Modal>
   );
 };
+
+export { PINSetupModal };
+
+// Default export for Expo Router
+export default PINSetupModal;
 
 const styles = StyleSheet.create({
   overlay: {

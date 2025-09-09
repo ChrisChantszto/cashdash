@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { getCurrencyLabel, getFullCurrencyList } from '@/constants/currencies';
+import { getCurrencyLabel, getDisplayCurrencyList } from '@/constants/currencies';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -44,7 +44,7 @@ const DEFAULT_INCOME_CATEGORIES = [
   { id: 'other', name: 'Other', icon: 'more-horiz' },
 ] as const;
 
-const ALL_CURRENCIES = getFullCurrencyList();
+const ALL_CURRENCIES = getDisplayCurrencyList();
 
 export default function AddIncomeScreen(props: any) {
   const forwardedParams = props?.forwardedParams;

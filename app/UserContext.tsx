@@ -15,3 +15,6 @@ export const UserContext = createContext<UserContextType>({
 export function useUser() {
   return useContext(UserContext);
 }
+
+// Default export for Expo Router
+export default useUser;

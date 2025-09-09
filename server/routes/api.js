@@ -4,6 +4,9 @@ const Transaction = require('../models/Transaction');
 
 const router = express.Router();
 
+// Import routes
+const feedbackRoutes = require('./feedback');
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
@@ -250,6 +253,13 @@ router.get('/hsbc/personal-credit-cards', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+// ============================================================================
+// FEEDBACK ROUTES
+// ============================================================================
+
+// Mount feedback routes
+router.use('/feedback', feedbackRoutes);
 
 // ============================================================================
 // TRANSACTION ROUTES

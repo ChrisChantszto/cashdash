@@ -7,7 +7,7 @@ interface PINUnlockScreenProps {
   onCancel?: () => void;
 }
 
-export const PINUnlockScreen: React.FC<PINUnlockScreenProps> = ({ onUnlock, onCancel }) => {
+const PINUnlockScreen: React.FC<PINUnlockScreenProps> = ({ onUnlock, onCancel }) => {
   const [pin, setPIN] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
@@ -164,6 +164,11 @@ export const PINUnlockScreen: React.FC<PINUnlockScreenProps> = ({ onUnlock, onCa
     </View>
   );
 };
+
+export { PINUnlockScreen };
+
+// Default export for Expo Router
+export default PINUnlockScreen;
 
 const styles = StyleSheet.create({
   container: {

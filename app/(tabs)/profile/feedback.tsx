@@ -1,14 +1,31 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput, Text, Alert } from 'react-native';
+import { 
+  View, 
+  StyleSheet, 
+  TouchableOpacity, 
+  TextInput, 
+  Text, 
+  Alert, 
+  ActivityIndicator, 
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import getApiUrl from '../../utils/api';
 
 export default function FeedbackScreen() {
   const [rating, setRating] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigation = useNavigation<any>();
+  
+  const API_URL = getApiUrl();
 
   const renderStar = (index: number) => {
     const filled = index <= rating;
@@ -26,24 +43,56 @@ export default function FeedbackScreen() {
       Alert.alert('Add feedback', 'Please rate or leave a message before submitting.');
       return;
     }
-    // Placeholder submission. Hook up to backend later if desired.
+    
+    setIsSubmitting(true);
+    
     try {
-      // TODO: POST to server when endpoint is available
-      // await fetch(`${API_URL}/feedback`, { method: 'POST', body: JSON.stringify({ rating, feedback }) });
-      Alert.alert('Thank you!', 'Your feedback has been submitted.');
-      setRating(0);
-      setFeedback('');
-    } catch (e) {
-      Alert.alert('Submission failed', 'Please try again later.');
+      // Send feedback to our server endpoint
+      const response = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ rating, feedback })
+      });
+      
+      if (response.ok) {
+        Alert.alert('Thank you!', 'Your feedback has been submitted and sent to our team.');
+        setRating(0);
+        setFeedback('');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Server error');
+      }
+    } catch (e: any) {
+      console.error('Feedback submission error:', e);
+      Alert.alert('Submission failed', `Please try again later. ${e.message || ''}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Dismiss keyboard when tapping outside of input
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Rate Cashly</ThemedText>
-      <ThemedText style={styles.subtitle}>
-        Share your feedback with the developer to help improve Cashly and your experience.
-      </ThemedText>
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <ThemedView style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            <ThemedText type="title" style={styles.title}>Rate Cashly</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Share your feedback with the developer to help improve Cashly and your experience.
+            </ThemedText>
 
       <View style={styles.card}>
         <ThemedText style={styles.sectionLabel}>Your rating</ThemedText>
@@ -68,13 +117,20 @@ export default function FeedbackScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.submitButton, !canSubmit && { opacity: 0.5 }]}
+        style={[styles.submitButton, (!canSubmit || isSubmitting) && { opacity: 0.5 }]}
         onPress={handleSubmit}
-        disabled={!canSubmit}
+        disabled={!canSubmit || isSubmitting}
       >
-        <Text style={styles.submitButtonText}>Submit</Text>
+        {isSubmitting ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.submitButtonText}>Submit</Text>
+        )}
       </TouchableOpacity>
-    </ThemedView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ThemedView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -82,7 +138,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f4e9',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
     padding: 24,
+    paddingBottom: 40,
   },
   title: {
     color: '#5d4037',

@@ -31,8 +31,11 @@ export const getApiUrl = (): string => {
 
   // Simulator / web fallbacks
   const base = Platform.select({
-    ios: 'http://192.168.0.249:5001', // Use your computer's IP address
+    // For iOS physical devices or simulators, try to use a more accessible IP
+    ios: 'http://192.168.68.63:5001',
+    // For Android emulators, 10.0.2.2 points to the host machine's localhost
     android: 'http://10.0.2.2:5001',
+    // For web or other platforms
     default: 'http://localhost:5001',
   });
   return `${base}/api`;

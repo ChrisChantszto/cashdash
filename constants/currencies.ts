@@ -36,6 +36,35 @@ export function getFullCurrencyList(): string[] {
   return list;
 }
 
+// Filtered list for UI display: only include currencies that have a flag/name mapping
+// in CURRENCY_META (i.e., show a flag and full country name) OR special labeled codes
+// like precious metals/SDR. Keeps HKD and RMB pinned to the top and removes codes
+// without icons (e.g., TMT, UAH) unless they have a defined flag/name mapping.
+export function getDisplayCurrencyList(): string[] {
+  const preferred = ['HKD', 'RMB'];
+  const specialLabeled = new Set(['XAU', 'XAG', 'XPT', 'XDR']);
+  const seen = new Set<string>();
+  const list: string[] = [];
+
+  // Add preferred first if they qualify
+  for (const c of preferred) {
+    if (!seen.has(c) && (CURRENCY_META[c] || specialLabeled.has(c))) {
+      list.push(c);
+      seen.add(c);
+    }
+  }
+
+  // Add rest that have flags or special labels
+  for (const c of ALL_CURRENCY_CODES) {
+    if (seen.has(c)) continue;
+    if (CURRENCY_META[c] || specialLabeled.has(c)) {
+      list.push(c);
+      seen.add(c);
+    }
+  }
+  return list;
+}
+
 // Pretty label with flag and country/region name
 // Note: Not all ISO codes map 1:1 to a single country (e.g., EUR, XAU). We provide
 // a curated mapping for common currencies and a sensible fallback.

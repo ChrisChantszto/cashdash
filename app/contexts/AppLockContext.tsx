@@ -202,3 +202,6 @@ export const useAppLock = (): AppLockContextType => {
   }
   return context;
 };
+
+// Default export for Expo Router
+export default useAppLock;

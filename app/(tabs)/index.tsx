@@ -207,6 +207,14 @@ export default function CalendarScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Floating Action Button for adding transaction/income */}
+      <TouchableOpacity 
+        style={styles.floatingActionButton}
+        onPress={() => openAddForSelected('expense', selected)}
+        accessibilityLabel="Add transaction for selected date"
+      >
+        <MaterialIcons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
       {/* Custom header with month nav and year picker */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={goPrevMonth} style={styles.navButton} accessibilityLabel="Previous month">
@@ -256,9 +264,17 @@ export default function CalendarScreen() {
           textDayFontSize: 16,
           todayTextColor: '#5d4037',
           textDisabledColor: '#d7ccc8',
-          textDayStyle: { marginTop: 6, marginBottom: 6 },
+          textDayStyle: { 
+            marginTop: 6, 
+            marginBottom: 6,
+            fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' })
+          },
           selectedDayBackgroundColor: '#8d6e63',
           selectedDayTextColor: '#f8f4e9',
+          // Add font family to all text elements
+          textDayFontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+          textMonthFontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
+          textDayHeaderFontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
         }}
         style={styles.calendar}
         onMonthChange={(m) => {
@@ -387,6 +403,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     paddingTop: Platform.select({ ios: 24, android: 16, default: 16 }),
+  },
+  floatingActionButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#8d6e63',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 999,
   },
   title: {
     textAlign: 'center',

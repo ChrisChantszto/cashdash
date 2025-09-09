@@ -43,5 +43,33 @@ app.get('/', (req, res) => {
 app.use('/api', require('./routes/api'));
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server running on http://localhost:${port}`);
+  // Get network interfaces to show available IP addresses
+  const { networkInterfaces } = require('os');
+  const nets = networkInterfaces();
+  const results = {};
+
+  // Collect all network interfaces
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+      if (net.family === 'IPv4' && !net.internal) {
+        if (!results[name]) {
+          results[name] = [];
+        }
+        results[name].push(net.address);
+      }
+    }
+  }
+
+  console.log(`Server running on port ${port}`);
+  console.log('Available on these network addresses:');
+  
+  // Log all available IP addresses
+  for (const [interface, addresses] of Object.entries(results)) {
+    for (const addr of addresses) {
+      console.log(`  http://${addr}:${port}`);
+    }
+  }
+  console.log(`  http://localhost:${port}`);
+  console.log('\nAPI endpoints available at [server-address]/api');
 });
